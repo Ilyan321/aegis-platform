@@ -62,20 +62,15 @@ export function CommandMenu({
               placeholder="Type a command, repository, or incident ID..."
               className="w-full py-3.5 text-xs bg-transparent text-heading placeholder:text-muted focus:outline-none"
             />
-            <div className="flex items-center space-x-2 shrink-0 ml-2">
-              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-surface border border-subtle rounded text-muted">
-                ESC
-              </kbd>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-7 h-7 rounded-lg bg-surface hover:bg-subtle border border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors"
-                title="Close (Esc)"
-                aria-label="Close"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-7 h-7 rounded-lg bg-surface hover:bg-subtle border border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors ml-2 shrink-0"
+              title="Close"
+              aria-label="Close"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           <Command.List className="max-h-80 overflow-y-auto p-2 space-y-1 text-xs">
