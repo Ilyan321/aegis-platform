@@ -32,16 +32,20 @@ export function Navbar({ onOpenCommand, onRefresh, isRefreshing }: NavbarProps) 
           </span>
         </div>
 
-        {/* Right Controls: Minimalist Icon Actions */}
-        <div className="flex items-center space-x-1">
+        {/* Right Controls: Sleek Small Input Search Area & Refresh */}
+        <div className="flex items-center space-x-3">
           <button
             type="button"
             onClick={onOpenCommand}
-            title="Search (⌘K)"
-            aria-label="Search"
-            className="w-8 h-8 rounded-lg hover:bg-canvas text-muted hover:text-heading flex items-center justify-center transition-colors"
+            className="flex items-center justify-between bg-canvas hover:bg-subtle/30 border border-subtle hover:border-interactive rounded-lg px-3 py-1.5 w-44 sm:w-56 text-xs text-muted transition-colors group text-left cursor-pointer"
           >
-            <Search className="w-4 h-4" />
+            <div className="flex items-center space-x-2">
+              <Search className="w-3.5 h-3.5 text-muted group-hover:text-heading transition-colors" />
+              <span className="text-muted group-hover:text-heading transition-colors">Search...</span>
+            </div>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-subtle text-muted group-hover:text-heading">
+              ⌘K
+            </kbd>
           </button>
 
           <button
