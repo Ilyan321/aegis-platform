@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
+    auth,
     incidents,
     organizations,
     repositories,
@@ -9,6 +10,7 @@ from app.api.v1.endpoints import (
 
 api_v1_router = APIRouter()
 
+api_v1_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_v1_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 api_v1_router.include_router(repositories.router, prefix="/repositories", tags=["Repositories"])
 api_v1_router.include_router(incidents.router, prefix="/incidents", tags=["Incidents"])
