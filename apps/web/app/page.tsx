@@ -10,6 +10,7 @@ import { IncidentDetailModal } from "@/components/IncidentDetailModal";
 import { OnboardModal } from "@/components/OnboardModal";
 import { CommandMenu } from "@/components/CommandMenu";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import {
   Incident,
   Repository,
@@ -24,6 +25,7 @@ import {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
   const [repositories, setRepositories] = useState<Repository[]>([]);
@@ -79,9 +81,14 @@ export default function DashboardPage() {
     }
   }, [authLoading, user, router]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadDashboardData(user?.organization_id);
+    await loadDashboardData(user?.organization_id);
+    toast({
+      type: "info",
+      title: "Telemetry refreshed",
+      description: "Workspace statistics synchronized with control plane.",
+    });
   };
 
 
@@ -96,10 +103,20 @@ export default function DashboardPage() {
       await updateIncidentStatus(id, newStatus);
       // Soft refresh telemetry in background
       fetchTelemetry().then((t) => t && setTelemetry(t)).catch(() => {});
+      toast({
+        type: newStatus === "RESOLVED" ? "success" : "info",
+        title: newStatus === "RESOLVED" ? "Incident resolved" : "Incident dismissed",
+        description: newStatus === "RESOLVED" ? "Marked resolved in forensic audit ledger." : "Flagged as false positive.",
+      });
     } catch (err) {
       console.error("Failed to update status, reverting:", err);
       // Revert on error
       loadDashboardData();
+      toast({
+        type: "error",
+        title: "Triage update failed",
+        description: "Could not reach control plane. Reverting state.",
+      });
     }
   };
 
@@ -161,7 +178,11 @@ export default function DashboardPage() {
       <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1">
         {/* Telemetry Metrics Grid */}
         <section aria-label="Security Posture Metrics">
-          <TelemetryCards data={telemetry} loading={loading} />
+          <TelemetryCards
+            data={telemetry}
+            loading={loading}
+            onSelectCategory={(cat) => setCurrentTab(cat)}
+          />
         </section>
 
         {/* Incident Management Section */}

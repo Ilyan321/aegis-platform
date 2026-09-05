@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, GitFork } from "lucide-react";
 import { createRepository, Repository } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 
 interface OnboardModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function OnboardModal({
   onRepositoryAdded,
   defaultOrgId,
 }: OnboardModalProps) {
+  const { toast } = useToast();
   const [fullName, setFullName] = useState("");
   const [cloneUrl, setCloneUrl] = useState("");
   const [branch, setBranch] = useState("main");
@@ -40,13 +42,20 @@ export function OnboardModal({
         webhook_secret: secret.trim() || undefined,
       });
       onRepositoryAdded(repo);
+      toast({
+        type: "success",
+        title: "Repository connected",
+        description: `${repo.full_name} is now actively monitored.`,
+      });
       onClose();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to onboard repository");
-      }
+      const message = err instanceof Error ? err.message : "Failed to onboard repository";
+      setError(message);
+      toast({
+        type: "error",
+        title: "Connection failed",
+        description: message,
+      });
     } finally {
       setLoading(false);
     }

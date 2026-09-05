@@ -27,17 +27,32 @@ body {
   background-color: #FFFFFF;
   border: 1px solid #BEE7E3;
   border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(13, 59, 57, 0.04);
 }
 
 .aegis-card-interactive {
   background-color: #FFFFFF;
   border: 1px solid #BEE7E3;
   border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(13, 59, 57, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .aegis-card-interactive:hover {
   border-color: #40B3A6;
+  box-shadow: 0 4px 12px 0 rgba(13, 59, 57, 0.07);
+}
+
+/* Zero-CLS Shimmer Placeholder */
+.shimmer-placeholder {
+  background: linear-gradient(90deg, #E6F4F3 0%, #D2EFEB 50%, #E6F4F3 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Subtle Pulsing Live Indicator */
+.pulse-indicator {
+  animation: pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Minimalist scrollbar */

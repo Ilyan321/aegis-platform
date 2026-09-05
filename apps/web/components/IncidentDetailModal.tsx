@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, ShieldAlert, History } from "lucide-react";
+import { X, ShieldAlert, History, Copy } from "lucide-react";
 import { Incident, IncidentAudit, fetchIncidentAudits, updateIncidentStatus } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 
 interface IncidentDetailModalProps {
   incident: Incident | null;
@@ -15,6 +16,7 @@ export function IncidentDetailModal({
   onClose,
   onStatusUpdated,
 }: IncidentDetailModalProps) {
+  const { toast } = useToast();
   const [audits, setAudits] = useState<IncidentAudit[]>([]);
   const [loadingAudits, setLoadingAudits] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -36,11 +38,31 @@ export function IncidentDetailModal({
       setUpdating(true);
       const updated = await updateIncidentStatus(incident.id, newStatus);
       onStatusUpdated(updated);
+      toast({
+        type: newStatus === "RESOLVED" ? "success" : "info",
+        title: `Incident marked as ${newStatus.toLowerCase()}`,
+        description: `Audit trail updated for ${incident.rule_name}.`,
+      });
     } catch (err) {
       console.error(err);
+      toast({
+        type: "error",
+        title: "Update failed",
+        description: "Could not update status on control plane.",
+      });
     } finally {
       setUpdating(false);
     }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      type: "success",
+      title: "Copied to clipboard",
+      description: `${label} copied.`,
+      duration: 2000,
+    });
   };
 
   return (
@@ -83,22 +105,42 @@ export function IncidentDetailModal({
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-canvas border border-subtle rounded-lg p-3.5">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-muted block mb-1">
-                Location
-              </span>
-              <span className="font-mono text-xs text-heading font-medium">
-                {incident.file_path}:{incident.line_number}
-              </span>
+            <div className="bg-canvas border border-subtle rounded-lg p-3.5 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-semibold tracking-wider text-muted block mb-1">
+                  Location
+                </span>
+                <span className="font-mono text-xs text-heading font-medium">
+                  {incident.file_path}:{incident.line_number}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(`${incident.file_path}:${incident.line_number}`, "File path")}
+                className="w-7 h-7 rounded hover:bg-surface border border-transparent hover:border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors"
+                title="Copy location"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <div className="bg-canvas border border-subtle rounded-lg p-3.5">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-muted block mb-1">
-                Commit & Author
-              </span>
-              <span className="font-mono text-xs text-heading">
-                {incident.commit_sha.slice(0, 7)}{" "}
-                {incident.committer_handle && `(@${incident.committer_handle})`}
-              </span>
+            <div className="bg-canvas border border-subtle rounded-lg p-3.5 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-semibold tracking-wider text-muted block mb-1">
+                  Commit & Author
+                </span>
+                <span className="font-mono text-xs text-heading">
+                  {incident.commit_sha.slice(0, 7)}{" "}
+                  {incident.committer_handle && `(@${incident.committer_handle})`}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(incident.commit_sha, "Commit SHA")}
+                className="w-7 h-7 rounded hover:bg-surface border border-transparent hover:border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors"
+                title="Copy full commit SHA"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
@@ -108,12 +150,17 @@ export function IncidentDetailModal({
               Masked Secret Token
             </span>
             <div className="bg-canvas border border-subtle rounded-lg p-3 flex items-center justify-between">
-              <span className="font-mono text-xs text-heading select-all">
+              <span className="font-mono text-xs text-heading select-all font-semibold">
                 {incident.masked_snippet}
               </span>
-              <span className="text-[10px] text-muted uppercase font-mono">
-                First 4 chars preserved
-              </span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(incident.masked_snippet, "Masked snippet")}
+                className="flex items-center space-x-1 text-[11px] font-medium text-muted hover:text-heading bg-surface hover:bg-subtle border border-subtle px-2.5 py-1 rounded transition-colors"
+              >
+                <Copy className="w-3 h-3" />
+                <span>Copy</span>
+              </button>
             </div>
           </div>
 
