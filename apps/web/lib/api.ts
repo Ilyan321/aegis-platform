@@ -75,9 +75,10 @@ export interface TelemetryData {
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export function getOAuthUrl(provider: "github" | "google"): string {
-  return `${API_BASE}/api/v1/auth/${provider}`;
+export function getOAuthUrl(provider: "github" | "google", mode: "login" | "signup" = "login"): string {
+  return `${API_BASE}/api/v1/auth/${provider}?mode=${mode}`;
 }
+
 
 export async function fetchTelemetry(organizationId?: string): Promise<TelemetryData> {
   const url = new URL(`${API_BASE}/api/v1/telemetry`);

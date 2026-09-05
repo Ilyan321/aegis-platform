@@ -45,8 +45,9 @@ function LoginForm() {
   };
 
   const handleOAuthClick = (provider: "github" | "google") => {
-    window.location.href = getOAuthUrl(provider);
+    window.location.href = getOAuthUrl(provider, "login");
   };
+
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col justify-center items-center p-4 selection:bg-subtle selection:text-heading">

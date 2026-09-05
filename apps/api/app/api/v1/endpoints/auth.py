@@ -44,7 +44,7 @@ async def register(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email address already exists",
+            detail="An account with this email address already exists. Please sign in instead.",
         )
 
     # 2. Create isolated workspace organization for this user
@@ -54,7 +54,6 @@ async def register(
     org = Organization(name=org_name, slug=org_slug)
     db.add(org)
     await db.flush()
-
 
     # 3. Create user
     user = User(
@@ -93,17 +92,23 @@ async def login(
     stmt = select(User).where(User.email == data.email.lower().strip())
     user = (await db.execute(stmt)).scalars().first()
 
-    if not user or not user.hashed_password:
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email. Please sign up first.",
+        )
+
+    if not user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"This account was registered using {user.provider.capitalize()}. Please sign in with {user.provider.capitalize()}.",
         )
 
     # 2. Verify password hash
     if not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail="Incorrect password. Please try again.",
         )
 
     if not user.is_active:
@@ -135,15 +140,16 @@ async def get_me(
 
 
 # ==========================================
-# GitHub OAuth Flow
+# GitHub OAuth Flow (Strict Mode-Aware)
 # ==========================================
 
 @router.get("/github", summary="Initiate GitHub OAuth authentication")
-async def github_login():
-    """Redirects the client to GitHub's OAuth authorization gateway."""
+async def github_login(mode: str = "login"):
+    """Redirects the client to GitHub's OAuth authorization gateway with mode (login/signup)."""
+    target_page = "login" if mode == "login" else "signup"
     if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
         error_msg = "GitHub OAuth is not configured yet. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in Render."
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error={error_msg}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error={error_msg}")
 
     redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/github/callback"
     github_auth_url = (
@@ -151,6 +157,7 @@ async def github_login():
         f"?client_id={settings.GITHUB_CLIENT_ID}"
         f"&redirect_uri={redirect_uri}"
         f"&scope=read:user%20user:email"
+        f"&state={mode}"
     )
     return RedirectResponse(url=github_auth_url)
 
@@ -159,12 +166,14 @@ async def github_login():
 async def github_callback(
     code: Optional[str] = None,
     error: Optional[str] = None,
+    state: Optional[str] = "login",
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchanges the GitHub OAuth code for tokens, synchronizes profile in Neon DB, and issues Aegis JWT."""
+    """Exchanges GitHub OAuth code. In login mode verifies existence; in signup mode creates user."""
+    target_page = "login" if state == "login" else "signup"
     if error or not code:
         err = error or "Authorization code missing"
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=GitHub+login+failed:+{err}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=GitHub+authorization+failed:+{err}")
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -184,7 +193,7 @@ async def github_callback(
 
             if not gh_token:
                 logger.error(f"GitHub token exchange failed: {token_data}")
-                return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=Failed+to+obtain+GitHub+access+token")
+                return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Failed+to+obtain+GitHub+access+token")
 
             # 2. Fetch GitHub User profile
             user_resp = await client.get(
@@ -217,25 +226,35 @@ async def github_callback(
 
             email = email.lower().strip()
 
-        # 4. Upsert user in Neon DB
+        # 4. Strict Mode Checks
         stmt = select(User).where((User.email == email) | ((User.provider == "github") & (User.provider_id == gh_id)))
         user = (await db.execute(stmt)).scalars().first()
 
-        if user:
+        if state == "login":
+            if not user:
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
+                )
+            # Link or update provider profile info
             user.provider = "github"
             user.provider_id = gh_id
-            if avatar_url:
+            if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
             if name and not user.full_name:
                 user.full_name = name
         else:
+            # state == "signup"
+            if user:
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/login?error=An+account+with+email+{email}+already+exists.+Please+sign+in."
+                )
+
             user_handle = email.split("@")[0]
             org_name = f"{name}'s Workspace" if name else f"{user_handle.capitalize()}'s Workspace"
             org_slug = f"ws-{user_handle}-{str(uuid.uuid4())[:8]}".lower()
             org = Organization(name=org_name, slug=org_slug)
             db.add(org)
             await db.flush()
-
 
             user = User(
                 email=email,
@@ -257,19 +276,20 @@ async def github_callback(
 
     except Exception as e:
         logger.exception("GitHub OAuth exchange error")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=GitHub+authentication+error")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=GitHub+authentication+error")
 
 
 # ==========================================
-# Google OAuth Flow
+# Google OAuth Flow (Strict Mode-Aware)
 # ==========================================
 
 @router.get("/google", summary="Initiate Google OAuth authentication")
-async def google_login():
-    """Redirects the client to Google's OAuth authorization gateway."""
+async def google_login(mode: str = "login"):
+    """Redirects the client to Google's OAuth authorization gateway with mode (login/signup)."""
+    target_page = "login" if mode == "login" else "signup"
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         error_msg = "Google OAuth is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render."
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error={error_msg}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error={error_msg}")
 
     redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/google/callback"
     google_auth_url = (
@@ -279,6 +299,7 @@ async def google_login():
         f"&response_type=code"
         f"&scope=openid%20email%20profile"
         f"&prompt=select_account"
+        f"&state={mode}"
     )
     return RedirectResponse(url=google_auth_url)
 
@@ -287,12 +308,14 @@ async def google_login():
 async def google_callback(
     code: Optional[str] = None,
     error: Optional[str] = None,
+    state: Optional[str] = "login",
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchanges the Google OAuth code for tokens, synchronizes profile in Neon DB, and issues Aegis JWT."""
+    """Exchanges Google OAuth code. In login mode verifies existence; in signup mode creates user."""
+    target_page = "login" if state == "login" else "signup"
     if error or not code:
         err = error or "Authorization code missing"
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=Google+login+failed:+{err}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+authorization+failed:+{err}")
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -312,7 +335,7 @@ async def google_callback(
 
             if not google_token:
                 logger.error(f"Google token exchange failed: {token_data}")
-                return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=Failed+to+obtain+Google+access+token")
+                return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Failed+to+obtain+Google+access+token")
 
             # 2. Fetch Google user profile
             user_resp = await client.get(
@@ -326,29 +349,39 @@ async def google_callback(
             avatar_url = g_user.get("picture")
 
             if not email:
-                return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=Google+profile+did+not+provide+an+email")
+                return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+profile+did+not+provide+an+email")
 
             email = email.lower().strip()
 
-        # 3. Upsert user in Neon DB
+        # 3. Strict Mode Checks
         stmt = select(User).where((User.email == email) | ((User.provider == "google") & (User.provider_id == g_id)))
         user = (await db.execute(stmt)).scalars().first()
 
-        if user:
+        if state == "login":
+            if not user:
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
+                )
+            # Link or update provider profile info
             user.provider = "google"
             user.provider_id = g_id
-            if avatar_url:
+            if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
             if name and not user.full_name:
                 user.full_name = name
         else:
+            # state == "signup"
+            if user:
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/login?error=An+account+with+email+{email}+already+exists.+Please+sign+in."
+                )
+
             user_handle = email.split("@")[0]
             org_name = f"{name}'s Workspace" if name else f"{user_handle.capitalize()}'s Workspace"
             org_slug = f"ws-{user_handle}-{str(uuid.uuid4())[:8]}".lower()
             org = Organization(name=org_name, slug=org_slug)
             db.add(org)
             await db.flush()
-
 
             user = User(
                 email=email,
@@ -370,5 +403,6 @@ async def google_callback(
 
     except Exception as e:
         logger.exception("Google OAuth exchange error")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=Google+authentication+error")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+authentication+error")
+
 
