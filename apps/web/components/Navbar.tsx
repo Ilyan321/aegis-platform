@@ -83,15 +83,11 @@ export function Navbar({
             </span>
           </Link>
 
-          {/* Workspace Pill & Live Indicator */}
+          {/* Workspace Label */}
           {user && (
-            <div className="hidden sm:flex items-center space-x-2 pl-3 border-l border-subtle">
-              <span className="text-xs font-medium text-heading max-w-[140px] truncate" title={activeOrgName || "Workspace"}>
+            <div className="hidden sm:flex items-center pl-3 border-l border-subtle">
+              <span className="text-xs font-medium text-heading max-w-[160px] truncate" title={activeOrgName || "Workspace"}>
                 {activeOrgName || "Workspace"}
-              </span>
-              <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <span>Live Mesh</span>
               </span>
             </div>
           )}
