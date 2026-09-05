@@ -22,7 +22,16 @@ async def list_repositories(
 ):
     stmt = select(Repository)
     if organization_id:
-        stmt = stmt.where(Repository.organization_id == organization_id)
+        # Also include default-org repositories so that initially connected repos remain visible
+        default_org_stmt = select(Organization.id).where(Organization.slug == "default-org")
+        default_org_id = (await db.execute(default_org_stmt)).scalar_one_or_none()
+        if default_org_id and default_org_id != organization_id:
+            stmt = stmt.where(
+                (Repository.organization_id == organization_id)
+                | (Repository.organization_id == default_org_id)
+            )
+        else:
+            stmt = stmt.where(Repository.organization_id == organization_id)
     stmt = stmt.offset(skip).limit(limit).order_by(Repository.created_at.desc())
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -34,28 +43,37 @@ async def create_repository(
     repo_in: RepositoryCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify organization exists
+    # Verify organization exists or fallback to default
     org = await db.get(Organization, repo_in.organization_id)
     if not org:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Organization {repo_in.organization_id} does not exist",
-        )
+        default_org_stmt = select(Organization).where(Organization.slug == "default-org")
+        org = (await db.execute(default_org_stmt)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Organization {repo_in.organization_id} does not exist",
+            )
+        target_org_id = org.id
+    else:
+        target_org_id = org.id
 
-    # Check for duplicate
-    stmt = select(Repository).where(Repository.full_name == repo_in.full_name)
+    # Check for duplicate in this workspace
+    stmt = select(Repository).where(
+        Repository.full_name == repo_in.full_name,
+        Repository.organization_id == target_org_id,
+    )
     existing = (await db.execute(stmt)).scalar_one_or_none()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Repository {repo_in.full_name} is already registered",
+            detail=f"Repository {repo_in.full_name} is already registered in this workspace",
         )
 
     # Auto-generate webhook secret if not supplied
     webhook_secret = repo_in.webhook_secret or secrets.token_hex(20)
 
     repo = Repository(
-        organization_id=repo_in.organization_id,
+        organization_id=target_org_id,
         github_repo_id=repo_in.github_repo_id,
         full_name=repo_in.full_name,
         clone_url=repo_in.clone_url,

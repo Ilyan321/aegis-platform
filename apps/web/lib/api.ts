@@ -162,6 +162,7 @@ export async function createRepository(payload: {
   clone_url: string;
   default_branch?: string;
   webhook_secret?: string;
+  github_repo_id?: number | null;
 }): Promise<Repository> {
   const res = await fetch(`${API_BASE}/api/v1/repositories`, {
     method: "POST",
@@ -171,6 +172,46 @@ export async function createRepository(payload: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Failed to create repository");
+  }
+  return res.json();
+}
+
+export async function deleteRepository(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/repositories/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Failed to delete repository: ${res.statusText}`);
+  }
+}
+
+export interface GitHubRepoItem {
+  id: number;
+  name: string;
+  full_name: string;
+  clone_url: string;
+  default_branch: string;
+  private: boolean;
+  description?: string | null;
+  html_url?: string;
+}
+
+export interface GitHubRepoResponse {
+  connected: boolean;
+  repositories: GitHubRepoItem[];
+  error?: string;
+}
+
+export async function fetchGitHubRepositories(username?: string): Promise<GitHubRepoResponse> {
+  const token = getStoredToken();
+  const url = new URL(`${API_BASE}/api/v1/auth/github/repos`);
+  if (username) url.searchParams.set("username", username);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url.toString(), { headers, cache: "no-store" });
+  if (!res.ok) {
+    return { connected: false, repositories: [] };
   }
   return res.json();
 }
@@ -190,6 +231,7 @@ export interface User {
   avatar_url?: string | null;
   provider: string;
   organization_id?: string | null;
+  has_github_token?: boolean;
   created_at: string;
 }
 

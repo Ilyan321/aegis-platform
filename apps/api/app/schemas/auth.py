@@ -39,6 +39,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     provider: str
     organization_id: Optional[UUID] = None
+    has_github_token: bool = False
     created_at: datetime
 
     class Config:

@@ -327,6 +327,10 @@ export default function DashboardPage() {
             <RepositoriesView
               repositories={repositories}
               onOpenOnboardModal={() => setIsOnboardOpen(true)}
+              onRepositoryDeleted={(id) => {
+                setRepositories((prev) => prev.filter((r) => r.id !== id));
+                loadDashboardData(user?.organization_id);
+              }}
               loading={loading}
             />
           </section>
@@ -369,7 +373,7 @@ export default function DashboardPage() {
       <OnboardModal
         isOpen={isOnboardOpen}
         onClose={() => setIsOnboardOpen(false)}
-        defaultOrgId={defaultOrgId}
+        defaultOrgId={user?.organization_id || defaultOrgId}
         onRepositoryAdded={(newRepo) => {
           setIsSimulated(false);
           setRepositories((prev) => [newRepo, ...prev]);

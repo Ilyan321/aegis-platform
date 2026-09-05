@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.security import (
     create_access_token,
     get_current_user,
+    get_optional_current_user,
     hash_password,
     verify_password,
 )
@@ -136,7 +137,9 @@ async def login(
 async def get_me(
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    return UserResponse.model_validate(current_user)
+    resp = UserResponse.model_validate(current_user)
+    resp.has_github_token = bool(current_user.github_access_token)
+    return resp
 
 
 # ==========================================
@@ -156,7 +159,7 @@ async def github_login(mode: str = "login"):
         f"https://github.com/login/oauth/authorize"
         f"?client_id={settings.GITHUB_CLIENT_ID}"
         f"&redirect_uri={redirect_uri}"
-        f"&scope=read:user%20user:email"
+        f"&scope=read:user%20user:email%20repo"
         f"&state={mode}"
     )
     return RedirectResponse(url=github_auth_url)
@@ -238,6 +241,7 @@ async def github_callback(
             # Link or update provider profile info
             user.provider = "github"
             user.provider_id = gh_id
+            user.github_access_token = gh_token
             if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
             if name and not user.full_name:
@@ -262,6 +266,7 @@ async def github_callback(
                 avatar_url=avatar_url,
                 provider="github",
                 provider_id=gh_id,
+                github_access_token=gh_token,
                 organization_id=org.id,
                 is_active=True,
             )
@@ -277,6 +282,58 @@ async def github_callback(
     except Exception as e:
         logger.exception("GitHub OAuth exchange error")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=GitHub+authentication+error")
+
+
+@router.get("/github/repos", summary="Fetch real GitHub repositories for user")
+async def get_github_repos(
+    username: Optional[str] = None,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+):
+    """Fetches real repositories from GitHub API using the user's OAuth access token or public username."""
+    token = current_user.github_access_token if current_user else None
+
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Aegis-Platform/1.0",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        url = "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator"
+    elif username:
+        clean_user = username.strip().replace("@", "")
+        url = f"https://api.github.com/users/{clean_user}/repos?sort=updated&per_page=100"
+    elif current_user and current_user.provider == "github" and current_user.full_name:
+        clean_user = current_user.full_name.strip().replace(" ", "")
+        url = f"https://api.github.com/users/{clean_user}/repos?sort=updated&per_page=100"
+    else:
+        return {"connected": False, "repositories": []}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                repos = resp.json()
+                simplified = [
+                    {
+                        "id": r.get("id"),
+                        "name": r.get("name"),
+                        "full_name": r.get("full_name"),
+                        "clone_url": r.get("clone_url"),
+                        "default_branch": r.get("default_branch", "main"),
+                        "private": r.get("private", False),
+                        "description": r.get("description"),
+                        "html_url": r.get("html_url"),
+                    }
+                    for r in repos
+                    if isinstance(r, dict) and r.get("full_name")
+                ]
+                return {"connected": bool(token), "repositories": simplified}
+            else:
+                logger.warning(f"GitHub repo fetch returned {resp.status_code}")
+                return {"connected": bool(token), "repositories": [], "error": f"GitHub returned {resp.status_code}"}
+    except Exception as e:
+        logger.exception("Failed to query GitHub repositories")
+        return {"connected": bool(token), "repositories": [], "error": str(e)}
 
 
 # ==========================================

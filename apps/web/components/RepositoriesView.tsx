@@ -1,23 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { GitFork, GitBranch, Plus, Search, Copy, Shield } from "lucide-react";
-import { Repository } from "@/lib/api";
+import { GitFork, GitBranch, Plus, Search, Copy, Shield, Trash2, Loader2 } from "lucide-react";
+import { Repository, deleteRepository } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 
 interface RepositoriesViewProps {
   repositories: Repository[];
   onOpenOnboardModal: () => void;
+  onRepositoryDeleted?: (id: string) => void;
   loading?: boolean;
 }
 
 export function RepositoriesView({
   repositories,
   onOpenOnboardModal,
+  onRepositoryDeleted,
   loading = false,
 }: RepositoriesViewProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const filtered = repositories.filter((r) =>
     r.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -32,6 +36,29 @@ export function RepositoriesView({
       description: `${name} clone URL copied to clipboard.`,
       duration: 2000,
     });
+  };
+
+  const handleDelete = async (repo: Repository) => {
+    setDeletingId(repo.id);
+    try {
+      await deleteRepository(repo.id);
+      toast({
+        type: "success",
+        title: "Repository disconnected",
+        description: `${repo.full_name} has been removed from active monitoring.`,
+      });
+      setConfirmDeleteId(null);
+      onRepositoryDeleted?.(repo.id);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to disconnect repository";
+      toast({
+        type: "error",
+        title: "Disconnection failed",
+        description: message,
+      });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -150,16 +177,65 @@ export function RepositoriesView({
                 </div>
               </div>
 
-              {/* Footer Meta */}
-              <div className="pt-3 border-t border-subtle flex items-center justify-between text-[11px] text-muted">
-                <span className="font-mono text-[10px] truncate max-w-[120px]">
-                  ID: {repo.id.slice(0, 8)}...
-                </span>
-                <span className="flex items-center space-x-1 text-primary font-medium">
-                  <Shield className="w-3 h-3" />
-                  <span>Mesh Protected</span>
-                </span>
-              </div>
+              {/* Footer Meta & Actions */}
+              {confirmDeleteId === repo.id ? (
+                <div className="pt-3 border-t border-subtle flex items-center justify-between animate-in fade-in duration-150">
+                  <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                    Disconnect repo?
+                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      disabled={deletingId === repo.id}
+                      className="px-2 py-1 rounded text-[11px] font-medium text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(repo)}
+                      disabled={deletingId === repo.id}
+                      className="px-2.5 py-1 rounded text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center space-x-1 shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      {deletingId === repo.id ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Removing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3 h-3" />
+                          <span>Confirm</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-subtle flex items-center justify-between text-[11px] text-muted">
+                  <div className="flex items-center space-x-2">
+                    <span className="flex items-center space-x-1 text-primary font-medium">
+                      <Shield className="w-3 h-3" />
+                      <span>Mesh Protected</span>
+                    </span>
+                    <span className="text-muted/40">•</span>
+                    <span className="font-mono text-[10px] truncate max-w-[80px]">
+                      {repo.id.slice(0, 8)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(repo.id)}
+                    className="p-1 rounded-md text-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                    title={`Disconnect ${repo.full_name}`}
+                    aria-label={`Disconnect ${repo.full_name}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

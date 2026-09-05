@@ -128,3 +128,23 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found or disabled")
 
     return user
+
+
+async def get_optional_current_user(
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Extracts User if Bearer token present, else returns None without raising 401."""
+    if not auth or not auth.credentials:
+        return None
+    try:
+        payload = decode_access_token(auth.credentials)
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return None
+        user_uuid = UUID(user_id_str)
+        stmt = select(User).where(User.id == user_uuid, User.is_active == True)
+        result = await db.execute(stmt)
+        return result.scalars().first()
+    except Exception:
+        return None

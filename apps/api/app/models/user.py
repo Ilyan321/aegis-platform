@@ -17,6 +17,7 @@ class User(Base):
     avatar_url = Column(String(1024), nullable=True)
     provider = Column(String(50), nullable=False, default="local")  # local, github, google
     provider_id = Column(String(255), nullable=True, index=True)
+    github_access_token = Column(String(512), nullable=True)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
