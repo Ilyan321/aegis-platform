@@ -68,11 +68,14 @@ async def handle_github_webhook(
         )
 
     # 4. Lookup or auto-provision repository
-    stmt = select(Repository).where(
-        (Repository.full_name == repo_full_name) | (Repository.github_repo_id == github_repo_id)
-    )
+    if github_repo_id is not None:
+        stmt = select(Repository).where(
+            (Repository.full_name == repo_full_name) | (Repository.github_repo_id == github_repo_id)
+        )
+    else:
+        stmt = select(Repository).where(Repository.full_name == repo_full_name)
     result = await db.execute(stmt)
-    repository = result.scalar_one_or_none()
+    repository = result.scalars().first()
 
     if not repository:
         # Auto-provision repository under default organization for frictionless DX
