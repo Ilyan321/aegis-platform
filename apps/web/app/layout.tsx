@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aegis Platform — Unified Credential Security Control Plane",
-  description: "Cloud-native control plane and orchestration fabric for the Aegis security ecosystem",
+  title: "Aegis Platform — Unified Credential Security Mesh",
+  description: "Enterprise control plane and automated secret lifecycle orchestration for the Aegis ecosystem.",
 };
 
 export default function RootLayout({
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-[#09090b] text-[#f4f4f5] font-sans antialiased selection:bg-rose-500/20 selection:text-rose-200">
+    <html lang="en">
+      <body className="min-h-screen bg-canvas text-heading font-sans antialiased">
         {children}
       </body>
     </html>

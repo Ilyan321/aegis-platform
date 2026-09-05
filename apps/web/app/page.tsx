@@ -1,101 +1,192 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useEffect, useState, useMemo } from "react";
+import { Navbar } from "@/components/Navbar";
+import { TelemetryCards } from "@/components/TelemetryCards";
+import { IncidentToolbar } from "@/components/IncidentToolbar";
+import { IncidentTable } from "@/components/IncidentTable";
+import { IncidentDetailModal } from "@/components/IncidentDetailModal";
+import { OnboardModal } from "@/components/OnboardModal";
+import { CommandMenu } from "@/components/CommandMenu";
+import {
+  Incident,
+  Repository,
+  TelemetryData,
+  fetchIncidents,
+  fetchRepositories,
+  fetchTelemetry,
+  fetchOrganizations,
+  updateIncidentStatus,
+} from "@/lib/api";
+
+export default function DashboardPage() {
+  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [defaultOrgId, setDefaultOrgId] = useState<string>("");
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Filters & State
+  const [currentTab, setCurrentTab] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Modals
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [isOnboardOpen, setIsOnboardOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+
+  // Initial Load
+  const loadDashboardData = async () => {
+    try {
+      const [tData, rData, iData, oData] = await Promise.all([
+        fetchTelemetry().catch(() => null),
+        fetchRepositories().catch(() => []),
+        fetchIncidents().catch(() => []),
+        fetchOrganizations().catch(() => []),
+      ]);
+
+      if (tData) setTelemetry(tData);
+      setRepositories(rData);
+      setIncidents(iData);
+      if (oData.length > 0) {
+        setDefaultOrgId(oData[0].id);
+      }
+    } catch (err) {
+      console.error("Error loading dashboard data:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
+
+  // Optimistic Triage Status Handler
+  const handleTriageStatus = async (id: string, newStatus: "RESOLVED" | "DISMISSED") => {
+    // 1. Optimistic local update
+    setIncidents((prev) =>
+      prev.map((inc) => (inc.id === id ? { ...inc, status: newStatus } : inc))
+    );
+
+    try {
+      await updateIncidentStatus(id, newStatus);
+      // Soft refresh telemetry in background
+      fetchTelemetry().then((t) => t && setTelemetry(t)).catch(() => {});
+    } catch (err) {
+      console.error("Failed to update status, reverting:", err);
+      // Revert on error
+      loadDashboardData();
+    }
+  };
+
+  // Filtered incidents based on active tab and search query
+  const filteredIncidents = useMemo(() => {
+    return incidents.filter((inc) => {
+      // Tab filtering
+      if (currentTab === "CRITICAL" && inc.severity !== "CRITICAL") return false;
+      if (currentTab === "ACTIVE" && inc.verification_status !== "ACTIVE") return false;
+      if (currentTab === "RESOLVED" && !["RESOLVED", "DISMISSED"].includes(inc.status)) return false;
+
+      // Search filtering
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchRule = inc.rule_name.toLowerCase().includes(q) || inc.rule_id.toLowerCase().includes(q);
+        const matchPath = inc.file_path.toLowerCase().includes(q);
+        const matchCommit = inc.commit_sha.toLowerCase().includes(q);
+        const matchAuthor = inc.committer_handle?.toLowerCase().includes(q);
+        if (!matchRule && !matchPath && !matchCommit && !matchAuthor) return false;
+      }
+
+      return true;
+    });
+  }, [incidents, currentTab, searchQuery]);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="min-h-screen bg-canvas flex flex-col">
+      {/* Top Navbar */}
+      <Navbar
+        onOpenCommand={() => setIsCommandOpen(true)}
+        onRefresh={handleRefresh}
+        isRefreshing={refreshing}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+      {/* Main Content Container with Breathable 8pt Spacing */}
+      <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1">
+        {/* Telemetry Metrics Grid */}
+        <section aria-label="Security Posture Metrics">
+          <TelemetryCards data={telemetry} loading={loading} />
+        </section>
+
+        {/* Incident Management Section */}
+        <section className="space-y-4" aria-label="Incident Management">
+          {/* Action & Filter Toolbar */}
+          <IncidentToolbar
+            currentTab={currentTab}
+            onTabChange={setCurrentTab}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenOnboardModal={() => setIsOnboardOpen(true)}
+            totalCount={filteredIncidents.length}
+          />
+
+          {/* Incident Forensic Ledger */}
+          <IncidentTable
+            incidents={filteredIncidents}
+            onSelectIncident={(inc) => setSelectedIncident(inc)}
+            onTriageStatus={handleTriageStatus}
+          />
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* Footer */}
+      <footer className="w-full bg-surface border-t border-subtle py-4 px-6 text-center text-xs text-muted">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <span className="font-mono text-[11px]">Aegis Platform v1.0.0</span>
+          <span>Zero-Dependency DevSecOps Intercept Mesh</span>
+        </div>
       </footer>
+
+      {/* Forensic Detail Modal */}
+      <IncidentDetailModal
+        incident={selectedIncident}
+        onClose={() => setSelectedIncident(null)}
+        onStatusUpdated={(updated) => {
+          setIncidents((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+          setSelectedIncident(updated);
+          fetchTelemetry().then((t) => t && setTelemetry(t)).catch(() => {});
+        }}
+      />
+
+      {/* Onboard Repository Modal */}
+      <OnboardModal
+        isOpen={isOnboardOpen}
+        onClose={() => setIsOnboardOpen(false)}
+        defaultOrgId={defaultOrgId}
+        onRepositoryAdded={(newRepo) => {
+          setRepositories((prev) => [newRepo, ...prev]);
+          loadDashboardData();
+        }}
+      />
+
+      {/* Global Command Menu (Cmd+K) */}
+      <CommandMenu
+        isOpen={isCommandOpen}
+        onClose={() => setIsCommandOpen(false)}
+        incidents={incidents}
+        repositories={repositories}
+        onSelectIncident={(inc) => setSelectedIncident(inc)}
+        onOpenOnboard={() => setIsOnboardOpen(true)}
+        onSetTab={(tab) => setCurrentTab(tab)}
+      />
     </div>
   );
 }

@@ -3,25 +3,58 @@
 @tailwind utilities;
 
 :root {
-  --background: #09090b;
-  --foreground: #f4f4f5;
+  --canvas: #E6F4F3;
+  --surface: #FFFFFF;
+  --heading: #0D3B39;
+  --muted: #4D6F6D;
+  --border: #BEE7E3;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-color: var(--canvas);
+  color: var(--heading);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism helpers */
-.glass-panel {
-  background: rgba(18, 18, 23, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+::selection {
+  background-color: #BEE7E3;
+  color: #0D3B39;
 }
 
-.glass-panel-hover:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+/* Precision hairline borders and solid cards */
+.aegis-card {
+  background-color: #FFFFFF;
+  border: 1px solid #BEE7E3;
+  border-radius: 0.75rem;
+}
+
+.aegis-card-interactive {
+  background-color: #FFFFFF;
+  border: 1px solid #BEE7E3;
+  border-radius: 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.aegis-card-interactive:hover {
+  border-color: #40B3A6;
+}
+
+/* Minimalist scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #E6F4F3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #BEE7E3;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #40B3A6;
 }

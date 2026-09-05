@@ -1,7 +1,6 @@
 import type { Config } from "tailwindcss";
 
 export default {
-  darkMode: ["class"],
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,25 +9,34 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "SF Pro Display", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans: [
+          "Inter",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "SF Pro Display",
+          "system-ui",
+          "sans-serif",
+        ],
+        mono: [
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "Liberation Mono",
+          "Courier New",
+          "monospace",
+        ],
       },
       colors: {
-        background: "#09090b",
-        foreground: "#f4f4f5",
-        surface: {
-          DEFAULT: "rgba(18, 18, 23, 0.7)",
-          elevated: "rgba(24, 24, 30, 0.85)",
-          border: "rgba(255, 255, 255, 0.08)",
-          "border-hover": "rgba(255, 255, 255, 0.16)",
-        },
-        status: {
-          critical: "#f43f5e",
-          high: "#fb923c",
-          medium: "#facc15",
-          low: "#38bdf8",
-          active: "#ef4444",
-          clean: "#10b981",
-        },
+        canvas: "#E6F4F3",
+        surface: "#FFFFFF",
+        subtle: "#BEE7E3",
+        border: "#BEE7E3",
+        accent: "#7ED2CC",
+        interactive: "#40B3A6",
+        primary: "#16857A",
+        heading: "#0D3B39",
+        muted: "#4D6F6D",
       },
     },
   },
