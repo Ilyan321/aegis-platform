@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { Command } from "cmdk";
-import { Search, ShieldAlert, GitFork, AlertCircle, Plus, X } from "lucide-react";
+import { Search, ShieldAlert, Shield, GitFork, AlertCircle, Plus, X, Activity, RefreshCw } from "lucide-react";
 import { Incident, Repository } from "@/lib/api";
 
 interface CommandMenuProps {
@@ -13,6 +13,8 @@ interface CommandMenuProps {
   onSelectIncident: (inc: Incident) => void;
   onOpenOnboard: () => void;
   onSetTab: (tab: string) => void;
+  onSetView?: (view: "incidents" | "repositories" | "scans") => void;
+  onRefresh?: () => void;
 }
 
 export function CommandMenu({
@@ -23,6 +25,8 @@ export function CommandMenu({
   onSelectIncident,
   onOpenOnboard,
   onSetTab,
+  onSetView,
+  onRefresh,
 }: CommandMenuProps) {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -78,8 +82,44 @@ export function CommandMenu({
               No matching commands or findings.
             </Command.Empty>
 
+            {/* Navigation Views */}
+            {onSetView && (
+              <Command.Group heading="Views" className="text-[10px] uppercase font-semibold text-muted px-2 py-1">
+                <Command.Item
+                  onSelect={() => {
+                    onSetView("incidents");
+                    onClose();
+                  }}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+                >
+                  <Shield className="w-4 h-4 text-primary" />
+                  <span>Go to Security Incidents</span>
+                </Command.Item>
+                <Command.Item
+                  onSelect={() => {
+                    onSetView("repositories");
+                    onClose();
+                  }}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+                >
+                  <GitFork className="w-4 h-4 text-primary" />
+                  <span>Go to Connected Repositories</span>
+                </Command.Item>
+                <Command.Item
+                  onSelect={() => {
+                    onSetView("scans");
+                    onClose();
+                  }}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+                >
+                  <Activity className="w-4 h-4 text-primary" />
+                  <span>Go to Scan Activity Ledger</span>
+                </Command.Item>
+              </Command.Group>
+            )}
+
             {/* Quick Actions */}
-            <Command.Group heading="Actions" className="text-[10px] uppercase font-semibold text-muted px-2 py-1">
+            <Command.Group heading="Actions" className="text-[10px] uppercase font-semibold text-muted px-2 py-1 mt-1">
               <Command.Item
                 onSelect={() => {
                   onOpenOnboard();
@@ -93,6 +133,7 @@ export function CommandMenu({
               <Command.Item
                 onSelect={() => {
                   onSetTab("ACTIVE");
+                  if (onSetView) onSetView("incidents");
                   onClose();
                 }}
                 className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
@@ -103,6 +144,7 @@ export function CommandMenu({
               <Command.Item
                 onSelect={() => {
                   onSetTab("CRITICAL");
+                  if (onSetView) onSetView("incidents");
                   onClose();
                 }}
                 className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
@@ -110,6 +152,18 @@ export function CommandMenu({
                 <ShieldAlert className="w-4 h-4 text-primary" />
                 <span>Filter Critical Incidents</span>
               </Command.Item>
+              {onRefresh && (
+                <Command.Item
+                  onSelect={() => {
+                    onRefresh();
+                    onClose();
+                  }}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+                >
+                  <RefreshCw className="w-4 h-4 text-primary" />
+                  <span>Refresh Control Plane Telemetry</span>
+                </Command.Item>
+              )}
             </Command.Group>
 
             {/* Incidents */}

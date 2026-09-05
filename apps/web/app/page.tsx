@@ -2,13 +2,16 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Navbar } from "@/components/Navbar";
+import { Navbar, DashboardView } from "@/components/Navbar";
 import { TelemetryCards } from "@/components/TelemetryCards";
 import { IncidentToolbar } from "@/components/IncidentToolbar";
 import { IncidentTable } from "@/components/IncidentTable";
 import { IncidentDetailModal } from "@/components/IncidentDetailModal";
 import { OnboardModal } from "@/components/OnboardModal";
 import { CommandMenu } from "@/components/CommandMenu";
+import { RepositoriesView } from "@/components/RepositoriesView";
+import { ScansView } from "@/components/ScansView";
+import { Shield, GitFork, Activity } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -31,9 +34,13 @@ export default function DashboardPage() {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [defaultOrgId, setDefaultOrgId] = useState<string>("");
+  const [activeOrgName, setActiveOrgName] = useState<string>("");
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Active View Tab: 'incidents' | 'repositories' | 'scans'
+  const [currentView, setCurrentView] = useState<DashboardView>("incidents");
 
   // Filters & State
   const [currentTab, setCurrentTab] = useState<string>("ALL");
@@ -60,8 +67,13 @@ export default function DashboardPage() {
       setIncidents(iData);
       if (orgId) {
         setDefaultOrgId(orgId);
+        const match = oData.find((o) => o.id === orgId);
+        if (match) setActiveOrgName(match.name);
       } else if (oData.length > 0) {
         setDefaultOrgId(oData[0].id);
+        setActiveOrgName(oData[0].name);
+      } else if (user?.full_name) {
+        setActiveOrgName(`${user.full_name}'s Workspace`);
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
@@ -169,41 +181,113 @@ export default function DashboardPage() {
 
       {/* Top Navbar */}
       <Navbar
+        currentView={currentView}
+        onViewChange={(view) => setCurrentView(view)}
         onOpenCommand={() => setIsCommandOpen(true)}
         onRefresh={handleRefresh}
         isRefreshing={refreshing}
+        activeOrgName={activeOrgName}
       />
 
       {/* Main Content Container with Breathable 8pt Spacing */}
-      <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1">
+      <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-6 flex-1">
         {/* Telemetry Metrics Grid */}
         <section aria-label="Security Posture Metrics">
           <TelemetryCards
             data={telemetry}
             loading={loading}
-            onSelectCategory={(cat) => setCurrentTab(cat)}
+            onSelectCategory={(cat) => {
+              setCurrentView("incidents");
+              setCurrentTab(cat);
+            }}
           />
         </section>
 
-        {/* Incident Management Section */}
-        <section className="space-y-4" aria-label="Incident Management">
-          {/* Action & Filter Toolbar */}
-          <IncidentToolbar
-            currentTab={currentTab}
-            onTabChange={setCurrentTab}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onOpenOnboardModal={() => setIsOnboardOpen(true)}
-            totalCount={filteredIncidents.length}
-          />
+        {/* Mobile / Small Screen View Switcher */}
+        <nav aria-label="Mobile Navigation Views" className="flex md:hidden items-center space-x-1 p-1 bg-surface border border-subtle rounded-xl">
+          <button
+            type="button"
+            onClick={() => setCurrentView("incidents")}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              currentView === "incidents"
+                ? "bg-primary text-surface font-semibold"
+                : "text-muted hover:text-heading hover:bg-canvas"
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Incidents</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentView("repositories")}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              currentView === "repositories"
+                ? "bg-primary text-surface font-semibold"
+                : "text-muted hover:text-heading hover:bg-canvas"
+            }`}
+          >
+            <GitFork className="w-3.5 h-3.5" />
+            <span>Repositories</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentView("scans")}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              currentView === "scans"
+                ? "bg-primary text-surface font-semibold"
+                : "text-muted hover:text-heading hover:bg-canvas"
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Scan Activity</span>
+          </button>
+        </nav>
 
-          {/* Incident Forensic Ledger */}
-          <IncidentTable
-            incidents={filteredIncidents}
-            onSelectIncident={(inc) => setSelectedIncident(inc)}
-            onTriageStatus={handleTriageStatus}
-          />
-        </section>
+        {/* View 1: Incident Management Section */}
+        {currentView === "incidents" && (
+          <section className="space-y-4" aria-label="Incident Management">
+            {/* Action & Filter Toolbar */}
+            <IncidentToolbar
+              currentTab={currentTab}
+              onTabChange={setCurrentTab}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onOpenOnboardModal={() => setIsOnboardOpen(true)}
+              totalCount={filteredIncidents.length}
+            />
+
+            {/* Incident Forensic Ledger */}
+            <IncidentTable
+              incidents={filteredIncidents}
+              onSelectIncident={(inc) => setSelectedIncident(inc)}
+              onTriageStatus={handleTriageStatus}
+            />
+          </section>
+        )}
+
+        {/* View 2: Repositories Management */}
+        {currentView === "repositories" && (
+          <section aria-label="Connected Repositories">
+            <RepositoriesView
+              repositories={repositories}
+              onOpenOnboardModal={() => setIsOnboardOpen(true)}
+              loading={loading}
+            />
+          </section>
+        )}
+
+        {/* View 3: Scan Run Activity Ledger */}
+        {currentView === "scans" && (
+          <section aria-label="Scan Activity Ledger">
+            <ScansView
+              scans={telemetry?.recent_scans || []}
+              repositories={repositories}
+              loading={loading}
+              onRefresh={handleRefresh}
+              isRefreshing={refreshing}
+            />
+          </section>
+        )}
       </main>
 
       {/* Footer */}
@@ -244,7 +328,12 @@ export default function DashboardPage() {
         repositories={repositories}
         onSelectIncident={(inc) => setSelectedIncident(inc)}
         onOpenOnboard={() => setIsOnboardOpen(true)}
-        onSetTab={(tab) => setCurrentTab(tab)}
+        onSetTab={(tab) => {
+          setCurrentView("incidents");
+          setCurrentTab(tab);
+        }}
+        onSetView={(view) => setCurrentView(view)}
+        onRefresh={handleRefresh}
       />
     </div>
   );
