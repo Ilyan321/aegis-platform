@@ -1,0 +1,16 @@
+# Aegis CLI Ignore File
+# Add patterns, paths, or file extensions to bypass during scans.
+
+.git/
+node_modules/
+vendor/
+target/
+dist/
+bin/
+*.lock
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+*.zip
