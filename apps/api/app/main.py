@@ -1,9 +1,12 @@
+import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
+
+GIT_COMMIT = os.getenv("RENDER_GIT_COMMIT", "df1e950")[:7]
 
 app = FastAPI(
     title="Aegis Platform API",
@@ -36,7 +39,7 @@ async def health_check():
         "service": "aegis-api",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0",
-        "commit": "3ea040f",
+        "commit": GIT_COMMIT,
     }
 
 
