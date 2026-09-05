@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
-import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.v1.router import api_v1_router
+from app.core.config import settings
 
 app = FastAPI(
     title="Aegis Platform API",
@@ -12,16 +14,16 @@ app = FastAPI(
 )
 
 # CORS configuration
-origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-allowed_origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins if allowed_origins else ["*"],
+    allow_origins=settings.cors_origin_list if settings.cors_origin_list else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount API v1 router
+app.include_router(api_v1_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["Health"])
@@ -42,4 +44,5 @@ async def root():
         "version": "1.0.0",
         "status": "online",
         "docs": "/docs",
+        "v1_endpoints": "/api/v1",
     }
