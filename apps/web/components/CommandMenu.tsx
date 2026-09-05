@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { Command } from "cmdk";
-import { Search, ShieldAlert, GitFork, AlertCircle, Plus } from "lucide-react";
+import { Search, ShieldAlert, GitFork, AlertCircle, Plus, X } from "lucide-react";
 import { Incident, Repository } from "@/lib/api";
 
 interface CommandMenuProps {
@@ -46,8 +46,14 @@ export function CommandMenu({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-heading/40">
-      <div className="bg-surface border border-subtle rounded-xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-100">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-heading/40 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border border-subtle rounded-xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-100 cursor-default"
+      >
         <Command label="Aegis Global Command Palette" className="w-full">
           <div className="flex items-center px-4 border-b border-subtle bg-canvas">
             <Search className="w-4 h-4 text-muted mr-3 shrink-0" />
@@ -56,6 +62,20 @@ export function CommandMenu({
               placeholder="Type a command, repository, or incident ID..."
               className="w-full py-3.5 text-xs bg-transparent text-heading placeholder:text-muted focus:outline-none"
             />
+            <div className="flex items-center space-x-2 shrink-0 ml-2">
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-surface border border-subtle rounded text-muted">
+                ESC
+              </kbd>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-7 h-7 rounded-lg bg-surface hover:bg-subtle border border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors"
+                title="Close (Esc)"
+                aria-label="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <Command.List className="max-h-80 overflow-y-auto p-2 space-y-1 text-xs">

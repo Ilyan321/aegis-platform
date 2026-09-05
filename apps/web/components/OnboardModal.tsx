@@ -53,8 +53,14 @@ export function OnboardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40">
-      <div className="bg-surface border border-subtle rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border border-subtle rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 cursor-default"
+      >
         <div className="flex items-center justify-between p-6 border-b border-subtle bg-canvas">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-lg bg-surface border border-subtle flex items-center justify-center text-primary">

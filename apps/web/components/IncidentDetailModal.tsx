@@ -44,8 +44,14 @@ export function IncidentDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40">
-      <div className="bg-surface border border-subtle rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border border-subtle rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 cursor-default"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-subtle bg-canvas">
           <div className="flex items-center space-x-3">
