@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Optional
+import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -36,7 +37,7 @@ logger = logging.getLogger("aegis.auth")
 async def register(
     data: UserRegisterRequest,
     db: AsyncSession = Depends(get_db),
-) -> Any:
+):
     # 1. Check if email is already taken
     stmt = select(User).where(User.email == data.email.lower().strip())
     existing = (await db.execute(stmt)).scalars().first()
@@ -46,13 +47,14 @@ async def register(
             detail="An account with this email address already exists",
         )
 
-    # 2. Lookup or create default organization
-    org_stmt = select(Organization).limit(1)
-    org = (await db.execute(org_stmt)).scalars().first()
-    if not org:
-        org = Organization(name="Default Organization", slug="default-org")
-        db.add(org)
-        await db.flush()
+    # 2. Create isolated workspace organization for this user
+    user_handle = data.email.split("@")[0]
+    org_name = f"{data.full_name}'s Workspace" if data.full_name else f"{user_handle.capitalize()}'s Workspace"
+    org_slug = f"ws-{user_handle}-{str(uuid.uuid4())[:8]}".lower()
+    org = Organization(name=org_name, slug=org_slug)
+    db.add(org)
+    await db.flush()
+
 
     # 3. Create user
     user = User(
@@ -227,12 +229,13 @@ async def github_callback(
             if name and not user.full_name:
                 user.full_name = name
         else:
-            org_stmt = select(Organization).limit(1)
-            org = (await db.execute(org_stmt)).scalars().first()
-            if not org:
-                org = Organization(name="Default Organization", slug="default-org")
-                db.add(org)
-                await db.flush()
+            user_handle = email.split("@")[0]
+            org_name = f"{name}'s Workspace" if name else f"{user_handle.capitalize()}'s Workspace"
+            org_slug = f"ws-{user_handle}-{str(uuid.uuid4())[:8]}".lower()
+            org = Organization(name=org_name, slug=org_slug)
+            db.add(org)
+            await db.flush()
+
 
             user = User(
                 email=email,
@@ -339,12 +342,13 @@ async def google_callback(
             if name and not user.full_name:
                 user.full_name = name
         else:
-            org_stmt = select(Organization).limit(1)
-            org = (await db.execute(org_stmt)).scalars().first()
-            if not org:
-                org = Organization(name="Default Organization", slug="default-org")
-                db.add(org)
-                await db.flush()
+            user_handle = email.split("@")[0]
+            org_name = f"{name}'s Workspace" if name else f"{user_handle.capitalize()}'s Workspace"
+            org_slug = f"ws-{user_handle}-{str(uuid.uuid4())[:8]}".lower()
+            org = Organization(name=org_name, slug=org_slug)
+            db.add(org)
+            await db.flush()
+
 
             user = User(
                 email=email,

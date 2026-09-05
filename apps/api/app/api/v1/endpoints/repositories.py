@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,13 +15,18 @@ router = APIRouter()
 
 @router.get("", response_model=List[RepositoryRead], summary="List all connected repositories")
 async def list_repositories(
+    organization_id: Optional[uuid.UUID] = None,
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Repository).offset(skip).limit(limit).order_by(Repository.created_at.desc())
+    stmt = select(Repository)
+    if organization_id:
+        stmt = stmt.where(Repository.organization_id == organization_id)
+    stmt = stmt.offset(skip).limit(limit).order_by(Repository.created_at.desc())
     result = await db.execute(stmt)
     return result.scalars().all()
+
 
 
 @router.post("", response_model=RepositoryRead, status_code=status.HTTP_201_CREATED, summary="Onboard repository")

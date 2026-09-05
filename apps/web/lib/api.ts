@@ -79,16 +79,20 @@ export function getOAuthUrl(provider: "github" | "google"): string {
   return `${API_BASE}/api/v1/auth/${provider}`;
 }
 
-export async function fetchTelemetry(): Promise<TelemetryData> {
-  const res = await fetch(`${API_BASE}/api/v1/telemetry`, { cache: "no-store" });
+export async function fetchTelemetry(organizationId?: string): Promise<TelemetryData> {
+  const url = new URL(`${API_BASE}/api/v1/telemetry`);
+  if (organizationId) url.searchParams.set("organization_id", organizationId);
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to fetch telemetry: ${res.statusText}`);
   }
   return res.json();
 }
 
-export async function fetchRepositories(): Promise<Repository[]> {
-  const res = await fetch(`${API_BASE}/api/v1/repositories`, { cache: "no-store" });
+export async function fetchRepositories(organizationId?: string): Promise<Repository[]> {
+  const url = new URL(`${API_BASE}/api/v1/repositories`);
+  if (organizationId) url.searchParams.set("organization_id", organizationId);
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Failed to fetch repositories: ${res.statusText}`);
   }
@@ -99,6 +103,7 @@ export async function fetchIncidents(filter?: {
   status?: string;
   severity?: string;
   repository_id?: string;
+  organization_id?: string;
 }): Promise<Incident[]> {
   const url = new URL(`${API_BASE}/api/v1/incidents`);
   if (filter?.status && filter.status !== "ALL") {
@@ -110,6 +115,9 @@ export async function fetchIncidents(filter?: {
   if (filter?.repository_id) {
     url.searchParams.set("repository_id", filter.repository_id);
   }
+  if (filter?.organization_id) {
+    url.searchParams.set("organization_id", filter.organization_id);
+  }
 
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
@@ -117,6 +125,7 @@ export async function fetchIncidents(filter?: {
   }
   return res.json();
 }
+
 
 export async function updateIncidentStatus(
   id: string,

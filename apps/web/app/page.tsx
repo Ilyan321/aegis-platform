@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { TelemetryCards } from "@/components/TelemetryCards";
 import { IncidentToolbar } from "@/components/IncidentToolbar";
@@ -8,6 +9,7 @@ import { IncidentTable } from "@/components/IncidentTable";
 import { IncidentDetailModal } from "@/components/IncidentDetailModal";
 import { OnboardModal } from "@/components/OnboardModal";
 import { CommandMenu } from "@/components/CommandMenu";
+import { useAuth } from "@/context/AuthContext";
 import {
   Incident,
   Repository,
@@ -20,6 +22,9 @@ import {
 } from "@/lib/api";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -37,20 +42,23 @@ export default function DashboardPage() {
   const [isOnboardOpen, setIsOnboardOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
 
-  // Initial Load
-  const loadDashboardData = async () => {
+  // Load Dashboard Data scoped to active user
+  const loadDashboardData = async (orgId?: string | null) => {
     try {
+      const targetOrg = orgId || undefined;
       const [tData, rData, iData, oData] = await Promise.all([
-        fetchTelemetry().catch(() => null),
-        fetchRepositories().catch(() => []),
-        fetchIncidents().catch(() => []),
+        fetchTelemetry(targetOrg).catch(() => null),
+        fetchRepositories(targetOrg).catch(() => []),
+        fetchIncidents({ organization_id: targetOrg }).catch(() => []),
         fetchOrganizations().catch(() => []),
       ]);
 
       if (tData) setTelemetry(tData);
       setRepositories(rData);
       setIncidents(iData);
-      if (oData.length > 0) {
+      if (orgId) {
+        setDefaultOrgId(orgId);
+      } else if (oData.length > 0) {
         setDefaultOrgId(oData[0].id);
       }
     } catch (err) {
@@ -62,13 +70,20 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (!authLoading) {
+      if (!user) {
+        router.replace("/login");
+      } else {
+        loadDashboardData(user.organization_id);
+      }
+    }
+  }, [authLoading, user, router]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadDashboardData();
+    loadDashboardData(user?.organization_id);
   };
+
 
   // Optimistic Triage Status Handler
   const handleTriageStatus = async (id: string, newStatus: "RESOLVED" | "DISMISSED") => {
@@ -110,8 +125,31 @@ export default function DashboardPage() {
     });
   }, [incidents, currentTab, searchQuery]);
 
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 rounded-xl bg-canvas border border-subtle flex items-center justify-center text-primary animate-pulse mb-3">
+          <svg
+            className="w-5 h-5 text-primary"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+        </div>
+        <p className="text-xs text-muted">Securing control plane session...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-canvas flex flex-col">
+
       {/* Top Navbar */}
       <Navbar
         onOpenCommand={() => setIsCommandOpen(true)}

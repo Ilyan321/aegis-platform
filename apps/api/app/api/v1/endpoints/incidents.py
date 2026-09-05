@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.audit import IncidentAudit
 from app.models.incident import Incident
+from app.models.repository import Repository
 from app.schemas.audit import IncidentAuditRead
 from app.schemas.incident import IncidentRead, IncidentStatusUpdate
 
@@ -16,6 +17,7 @@ router = APIRouter()
 
 @router.get("", response_model=List[IncidentRead], summary="List security incidents")
 async def list_incidents(
+    organization_id: Optional[uuid.UUID] = None,
     repository_id: Optional[uuid.UUID] = None,
     status: Optional[str] = Query(None, pattern=r"^(OPEN|RESOLVED|REGRESSION|DISMISSED)$"),
     severity: Optional[str] = Query(None, pattern=r"^(CRITICAL|HIGH|MEDIUM|LOW)$"),
@@ -25,6 +27,10 @@ async def list_incidents(
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Incident)
+    if organization_id:
+        stmt = stmt.join(Repository, Incident.repository_id == Repository.id).where(
+            Repository.organization_id == organization_id
+        )
     if repository_id:
         stmt = stmt.where(Incident.repository_id == repository_id)
     if status:
@@ -37,6 +43,7 @@ async def list_incidents(
     stmt = stmt.offset(skip).limit(limit).order_by(Incident.last_seen_at.desc())
     result = await db.execute(stmt)
     return result.scalars().all()
+
 
 
 @router.get("/{incident_id}", response_model=IncidentRead, summary="Get incident by ID")
