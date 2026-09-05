@@ -168,3 +168,83 @@ export async function fetchOrganizations(): Promise<Array<{ id: string; name: st
   }
   return res.json();
 }
+
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  provider: string;
+  organization_id?: string | null;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+const TOKEN_KEY = "aegis_auth_token";
+
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setStoredToken(token: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+}
+
+export function removeStoredToken(): void {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export async function loginUser(email: string, password: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Authentication failed");
+  }
+  const data: AuthResponse = await res.json();
+  setStoredToken(data.access_token);
+  return data;
+}
+
+export async function registerUser(email: string, password: string, fullName?: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, full_name: fullName || undefined }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Registration failed");
+  }
+  const data: AuthResponse = await res.json();
+  setStoredToken(data.access_token);
+  return data;
+}
+
+export async function fetchCurrentUser(): Promise<User | null> {
+  const token = getStoredToken();
+  if (!token) return null;
+
+  const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    removeStoredToken();
+    return null;
+  }
+  return res.json();
+}
