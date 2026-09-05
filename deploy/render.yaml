@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: aegis-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerContext: apps/api
+    dockerfilePath: apps/api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: AEGIS_MASTER_KEY
+        generateValue: true
+      - key: AEGIS_BLIND_PEPPER
+        generateValue: true
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: WEBHOOK_SECRET_DEFAULT
+        generateValue: true

@@ -1,0 +1,23 @@
+{
+  "name": "aegis-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Centralized cloud-native control plane and orchestration fabric for the Aegis security ecosystem",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace=apps/web run dev",
+    "build": "npm --workspace=apps/web run build",
+    "start": "npm --workspace=apps/web run start",
+    "lint": "npm --workspace=apps/web run lint"
+  },
+  "keywords": [
+    "devsecops",
+    "secret-scanner",
+    "security",
+    "aegis"
+  ],
+  "author": "Core Platform Engineering Team",
+  "license": "MIT"
+}
