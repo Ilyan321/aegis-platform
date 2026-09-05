@@ -15,32 +15,26 @@ export function TelemetryCards({ data, loading }: TelemetryCardsProps) {
       title: "Connected Repositories",
       value: loading ? "—" : data?.total_repositories ?? 0,
       icon: GitFork,
-      badge: `${data?.total_scans ?? 0} scans run`,
-      badgeStyle: "bg-canvas text-primary border-subtle",
+      subtitle: `${data?.total_scans ?? 0} scans run`,
     },
     {
       title: "Active Verified Leaks",
       value: loading ? "—" : data?.active_leaks ?? 0,
       icon: Flame,
-      badge: (data?.active_leaks ?? 0) > 0 ? "Action Required" : "Zero Live Leaks",
-      badgeStyle:
-        (data?.active_leaks ?? 0) > 0
-          ? "bg-[#BEE7E3] text-[#0D3B39] font-bold border-[#7ED2CC]"
-          : "bg-canvas text-muted border-subtle",
+      subtitle: (data?.active_leaks ?? 0) > 0 ? "Action Required" : "Zero Live Leaks",
+      isAlert: (data?.active_leaks ?? 0) > 0,
     },
     {
       title: "Open Security Incidents",
       value: loading ? "—" : (data?.critical_count ?? 0) + (data?.high_count ?? 0),
       icon: AlertOctagon,
-      badge: `${data?.critical_count ?? 0} critical priority`,
-      badgeStyle: "bg-canvas text-heading border-subtle",
+      subtitle: `${data?.critical_count ?? 0} critical priority`,
     },
     {
       title: "Mean Time to Remediate",
       value: loading ? "—" : `${data?.mean_time_to_remediate_hours ?? 1.8}h`,
       icon: Clock,
-      badge: `${data?.resolved_incidents ?? 0} resolved`,
-      badgeStyle: "bg-canvas text-primary border-subtle",
+      subtitle: `${data?.resolved_incidents ?? 0} resolved`,
     },
   ];
 
@@ -57,19 +51,19 @@ export function TelemetryCards({ data, loading }: TelemetryCardsProps) {
               <span className="text-xs font-semibold tracking-wider uppercase text-muted">
                 {card.title}
               </span>
-              <div className="w-8 h-8 rounded-lg bg-canvas border border-subtle flex items-center justify-center text-primary">
-                <Icon className="w-4 h-4" />
-              </div>
+              <Icon className="w-4 h-4 text-primary" />
             </div>
 
-            <div className="flex items-baseline justify-between mt-2">
+            <div className="flex items-baseline justify-between mt-3">
               <span className="text-3xl font-semibold text-heading tracking-tight font-mono">
                 {card.value}
               </span>
               <span
-                className={`text-[11px] px-2.5 py-0.5 rounded border font-medium ${card.badgeStyle}`}
+                className={`text-xs font-medium ${
+                  card.isAlert ? "text-primary font-semibold" : "text-muted"
+                }`}
               >
-                {card.badge}
+                {card.subtitle}
               </span>
             </div>
           </div>
