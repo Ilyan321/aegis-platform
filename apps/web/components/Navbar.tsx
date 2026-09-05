@@ -141,20 +141,14 @@ export function Navbar({
 
         {/* Right Controls: Command Menu, Refresh, and User Popover */}
         <div className="flex items-center space-x-2.5">
-          {/* Quick Search / Cmd+K Button */}
+          {/* Quick Search Button */}
           <button
             type="button"
             onClick={onOpenCommand}
-            className="flex items-center justify-between bg-canvas hover:bg-subtle/30 border border-subtle hover:border-interactive rounded-lg px-2.5 py-1.5 w-32 sm:w-44 text-xs text-muted transition-all group cursor-pointer"
+            className="flex items-center space-x-2 bg-canvas hover:bg-subtle/30 border border-subtle hover:border-interactive rounded-lg px-3 py-1.5 w-36 sm:w-48 text-xs text-muted transition-colors group cursor-pointer"
           >
-            <div className="flex items-center space-x-2">
-              <Search className="w-3.5 h-3.5 text-muted group-hover:text-heading transition-colors" />
-              <span className="text-muted group-hover:text-heading transition-colors hidden sm:inline">Search...</span>
-              <span className="text-muted group-hover:text-heading transition-colors sm:hidden">Find...</span>
-            </div>
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.2 text-[10px] font-mono text-muted bg-surface border border-subtle rounded">
-              ⌘K
-            </kbd>
+            <Search className="w-3.5 h-3.5 text-muted group-hover:text-heading transition-colors" />
+            <span className="text-muted group-hover:text-heading transition-colors">Search...</span>
           </button>
 
           {/* Refresh Telemetry */}

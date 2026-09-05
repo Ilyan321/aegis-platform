@@ -14,6 +14,8 @@ import { ScansView } from "@/components/ScansView";
 import { Shield, GitFork, Activity } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { OnboardingHero } from "@/components/OnboardingHero";
+import { SAMPLE_INCIDENTS, SAMPLE_REPOSITORIES, SAMPLE_TELEMETRY } from "@/lib/sampleData";
 import {
   Incident,
   Repository,
@@ -41,6 +43,7 @@ export default function DashboardPage() {
 
   // Active View Tab: 'incidents' | 'repositories' | 'scans'
   const [currentView, setCurrentView] = useState<DashboardView>("incidents");
+  const [isSimulated, setIsSimulated] = useState(false);
 
   // Filters & State
   const [currentTab, setCurrentTab] = useState<string>("ALL");
@@ -92,6 +95,28 @@ export default function DashboardPage() {
       }
     }
   }, [authLoading, user, router]);
+
+  const handleLoadSampleData = () => {
+    setIsSimulated(true);
+    setTelemetry(SAMPLE_TELEMETRY);
+    setRepositories(SAMPLE_REPOSITORIES);
+    setIncidents(SAMPLE_INCIDENTS);
+    toast({
+      type: "info",
+      title: "Simulation active",
+      description: "Loaded 3 sample repositories and 4 findings for preview.",
+    });
+  };
+
+  const handleResetData = () => {
+    setIsSimulated(false);
+    loadDashboardData(user?.organization_id);
+    toast({
+      type: "info",
+      title: "Simulation cleared",
+      description: "Returned to verified workspace state.",
+    });
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -246,22 +271,53 @@ export default function DashboardPage() {
         {/* View 1: Incident Management Section */}
         {currentView === "incidents" && (
           <section className="space-y-4" aria-label="Incident Management">
-            {/* Action & Filter Toolbar */}
-            <IncidentToolbar
-              currentTab={currentTab}
-              onTabChange={setCurrentTab}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onOpenOnboardModal={() => setIsOnboardOpen(true)}
-              totalCount={filteredIncidents.length}
-            />
+            {repositories.length === 0 && incidents.length === 0 && !loading && !isSimulated ? (
+              <OnboardingHero
+                onOpenOnboardModal={() => setIsOnboardOpen(true)}
+                onLoadSampleData={handleLoadSampleData}
+                onResetData={handleResetData}
+                isSimulated={isSimulated}
+              />
+            ) : (
+              <>
+                {/* Simulation Banner */}
+                {isSimulated && (
+                  <div className="bg-surface border border-interactive rounded-xl p-3 px-4 flex items-center justify-between text-xs shadow-subtle animate-in fade-in duration-150">
+                    <div className="flex items-center space-x-2.5">
+                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
+                      <span className="font-semibold text-heading">Simulation Mode:</span>
+                      <span className="text-muted hidden sm:inline">
+                        Previewing sample repositories and findings. No real code was modified.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetData}
+                      className="text-xs font-semibold text-primary hover:text-heading transition-colors cursor-pointer shrink-0 ml-2"
+                    >
+                      Exit Simulation →
+                    </button>
+                  </div>
+                )}
 
-            {/* Incident Forensic Ledger */}
-            <IncidentTable
-              incidents={filteredIncidents}
-              onSelectIncident={(inc) => setSelectedIncident(inc)}
-              onTriageStatus={handleTriageStatus}
-            />
+                {/* Action & Filter Toolbar */}
+                <IncidentToolbar
+                  currentTab={currentTab}
+                  onTabChange={setCurrentTab}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  onOpenOnboardModal={() => setIsOnboardOpen(true)}
+                  totalCount={filteredIncidents.length}
+                />
+
+                {/* Incident Forensic Ledger */}
+                <IncidentTable
+                  incidents={filteredIncidents}
+                  onSelectIncident={(inc) => setSelectedIncident(inc)}
+                  onTriageStatus={handleTriageStatus}
+                />
+              </>
+            )}
           </section>
         )}
 
@@ -315,8 +371,9 @@ export default function DashboardPage() {
         onClose={() => setIsOnboardOpen(false)}
         defaultOrgId={defaultOrgId}
         onRepositoryAdded={(newRepo) => {
+          setIsSimulated(false);
           setRepositories((prev) => [newRepo, ...prev]);
-          loadDashboardData();
+          loadDashboardData(user?.organization_id);
         }}
       />
 
