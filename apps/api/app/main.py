@@ -28,7 +28,7 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix="/api/v1")
 
 
-@app.get("/health", tags=["Health"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
 async def health_check():
     """Ultra-fast keep-alive health check for cloud ping monitors (cron-job.org / UptimeRobot)."""
     return {
@@ -39,7 +39,7 @@ async def health_check():
     }
 
 
-@app.get("/", tags=["Root"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["Root"])
 async def root():
     return {
         "name": "Aegis Platform API",
