@@ -45,3 +45,5 @@ Thumbs.db
 # Temporary scan targets
 /tmp/scan_*
 /tmp/repo_*
+.vercel
+.env*
