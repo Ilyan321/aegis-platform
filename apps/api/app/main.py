@@ -36,6 +36,7 @@ async def health_check():
         "service": "aegis-api",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0",
+        "commit": "3ea040f",
     }
 
 

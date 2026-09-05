@@ -149,18 +149,28 @@ async def handle_github_webhook(
 
     # 8. Asynchronously dispatch scan task to Upstash Redis queue via Celery
     pusher = payload.get("pusher", {}).get("name") or payload.get("sender", {}).get("login")
-    celery_app.send_task(
-        "aegis.tasks.process_scan_event",
-        kwargs={
-            "scan_run_id": str(scan_run.id),
-            "repository_id": str(repository.id),
-            "clone_url": clone_url,
-            "branch": branch,
-            "commit_sha": commit_sha,
-            "committer_handle": pusher,
-            "delivery_guid": x_github_delivery,
-        },
-    )
+    try:
+        celery_app.send_task(
+            "aegis.tasks.process_scan_event",
+            kwargs={
+                "scan_run_id": str(scan_run.id),
+                "repository_id": str(repository.id),
+                "clone_url": clone_url,
+                "branch": branch,
+                "commit_sha": commit_sha,
+                "committer_handle": pusher,
+                "delivery_guid": x_github_delivery,
+            },
+        )
+    except Exception as exc:
+        logger.error(f"Failed to enqueue scan task: {exc}", exc_info=True)
+        scan_run.status = "FAILED"
+        scan_run.error_message = f"Broker enqueue error: {str(exc)}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Broker enqueue failed: {str(exc)}",
+        )
 
     logger.info(
         f"Enqueued scan run={scan_run.id} repo={repo_full_name} commit={commit_sha[:7]} delivery={x_github_delivery}"
