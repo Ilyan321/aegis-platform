@@ -38,8 +38,16 @@ class Settings(BaseSettings):
     # Webhook defaults
     WEBHOOK_SECRET_DEFAULT: str = "aegis-default-webhook-secret"
 
-    # CORS
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # CORS & Domains
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform-web.vercel.app"
+    FRONTEND_URL: str = "https://aegis-platform-web.vercel.app"
+    BACKEND_URL: str = "https://aegis-platform-wwgp.onrender.com"
+
+    # OAuth Providers
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE_PATH) if ENV_FILE_PATH.exists() else ".env",

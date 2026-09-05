@@ -73,7 +73,11 @@ export interface TelemetryData {
   recent_scans: ScanRun[];
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export function getOAuthUrl(provider: "github" | "google"): string {
+  return `${API_BASE}/api/v1/auth/${provider}`;
+}
 
 export async function fetchTelemetry(): Promise<TelemetryData> {
   const res = await fetch(`${API_BASE}/api/v1/telemetry`, { cache: "no-store" });
