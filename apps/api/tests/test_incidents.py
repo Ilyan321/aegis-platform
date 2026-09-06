@@ -146,3 +146,79 @@ async def test_cross_tenant_incident_isolation(
         headers=headers_b,
     )
     assert patch_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bulk_incident_status_update(
+    async_client: AsyncClient, db_session: AsyncSession, test_user_data
+):
+    repo = Repository(
+        id=uuid.uuid4(),
+        organization_id=test_user_data["org"].id,
+        full_name="acme/bulk-repo",
+        clone_url="https://github.com/acme/bulk-repo.git",
+        default_branch="main",
+        webhook_secret="secret",
+        is_active=True,
+    )
+    db_session.add(repo)
+    await db_session.flush()
+
+    inc1 = Incident(
+        id=uuid.uuid4(),
+        repository_id=repo.id,
+        rule_id="AWS_KEY",
+        rule_name="AWS Key 1",
+        severity="CRITICAL",
+        status="OPEN",
+        file_path="src/aws.js",
+        line_number=10,
+        masked_snippet="AKIA1111111111111111",
+        commit_sha="a" * 40,
+        fingerprint="fp1-" + str(uuid.uuid4()),
+        secret_hash="hash1-" + str(uuid.uuid4()),
+    )
+    inc2 = Incident(
+        id=uuid.uuid4(),
+        repository_id=repo.id,
+        rule_id="STRIPE_KEY",
+        rule_name="Stripe Secret Key",
+        severity="HIGH",
+        status="OPEN",
+        file_path="src/billing.js",
+        line_number=20,
+        masked_snippet="sk_live_2222222222222222",
+        commit_sha="b" * 40,
+        fingerprint="fp2-" + str(uuid.uuid4()),
+        secret_hash="hash2-" + str(uuid.uuid4()),
+    )
+    db_session.add_all([inc1, inc2])
+    await db_session.commit()
+
+    # Bulk resolve
+    bulk_resp = await async_client.post(
+        "/api/v1/incidents/bulk-status",
+        json={
+            "incident_ids": [str(inc1.id), str(inc2.id)],
+            "status": "RESOLVED",
+            "reason": "Bulk rotated via KMS",
+        },
+        headers=test_user_data["headers"],
+    )
+    assert bulk_resp.status_code == 200
+    data = bulk_resp.json()
+    assert data["updated_count"] == 2
+    assert data["status"] == "RESOLVED"
+    assert len(data["incident_ids"]) == 2
+
+    # Verify audit records created for both
+    audit_resp1 = await async_client.get(
+        f"/api/v1/incidents/{inc1.id}/audits",
+        headers=test_user_data["headers"],
+    )
+    assert audit_resp1.status_code == 200
+    audits1 = audit_resp1.json()
+    assert len(audits1) >= 1
+    assert audits1[0]["action"] == "BULK_STATUS_CHANGE_RESOLVED"
+    assert audits1[0]["new_state"]["reason"] == "Bulk rotated via KMS"
+

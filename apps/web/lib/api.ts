@@ -172,6 +172,27 @@ export async function updateIncidentStatus(
   });
 }
 
+export interface BulkStatusResponse {
+  updated_count: number;
+  status: string;
+  incident_ids: string[];
+}
+
+export async function bulkUpdateIncidentStatus(
+  incidentIds: string[],
+  newStatus: "OPEN" | "RESOLVED" | "DISMISSED",
+  reason?: string
+): Promise<BulkStatusResponse> {
+  return apiFetch<BulkStatusResponse>("/api/v1/incidents/bulk-status", {
+    method: "POST",
+    body: JSON.stringify({
+      incident_ids: incidentIds,
+      status: newStatus,
+      reason: reason || "Bulk status triage via Aegis Console",
+    }),
+  });
+}
+
 export async function fetchIncidentAudits(id: string): Promise<IncidentAudit[]> {
   return apiFetch<IncidentAudit[]>(`/api/v1/incidents/${id}/audits`);
 }

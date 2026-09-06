@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   CheckCircle2,
   ShieldCheck,
@@ -14,13 +14,22 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Keyboard,
+  CheckSquare,
+  Square,
+  MinusSquare,
+  XCircle,
+  Loader2,
+  X,
 } from "lucide-react";
 import { Incident } from "@/lib/api";
+import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 
 interface IncidentTableProps {
   incidents: Incident[];
   onSelectIncident: (inc: Incident) => void;
   onTriageStatus: (id: string, newStatus: "RESOLVED" | "DISMISSED") => void;
+  onBulkStatus?: (ids: string[], newStatus: "RESOLVED" | "DISMISSED") => Promise<void>;
 }
 
 type SortField = "severity" | "rule_name" | "file_path" | "verification_status" | "commit_sha" | "last_seen_at";
@@ -37,11 +46,20 @@ export function IncidentTable({
   incidents,
   onSelectIncident,
   onTriageStatus,
+  onBulkStatus,
 }: IncidentTableProps) {
   const [sortField, setSortField] = useState<SortField>("last_seen_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState<"RESOLVED" | "DISMISSED" | null>(null);
+
+  // Keyboard navigation
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -51,6 +69,7 @@ export function IncidentTable({
       setSortOrder(field === "severity" || field === "last_seen_at" ? "desc" : "asc");
     }
     setCurrentPage(1);
+    setFocusedIndex(-1);
   };
 
   const sortedIncidents = useMemo(() => {
@@ -78,67 +97,175 @@ export function IncidentTable({
   const startIndex = (clampedPage - 1) * pageSize;
   const paginatedIncidents = sortedIncidents.slice(startIndex, startIndex + pageSize);
 
-  const exportToCSV = () => {
-    const headers = [
-      "ID",
-      "Rule ID",
-      "Rule Name",
-      "Severity",
-      "Status",
-      "Verification Status",
-      "File Path",
-      "Line Number",
-      "Masked Snippet",
-      "Commit SHA",
-      "Committer",
-      "First Seen",
-      "Last Seen",
-    ];
+  // Selection Helpers
+  const isAllPageSelected = paginatedIncidents.length > 0 && paginatedIncidents.every((i) => selectedIds.has(i.id));
+  const isSomePageSelected = paginatedIncidents.some((i) => selectedIds.has(i.id)) && !isAllPageSelected;
 
-    const escapeCSV = (val: unknown) => {
-      if (val === null || val === undefined) return '""';
-      const str = String(val).replace(/"/g, '""');
-      return `"${str}"`;
-    };
-
-    const rows = sortedIncidents.map((inc) => [
-      escapeCSV(inc.id),
-      escapeCSV(inc.rule_id),
-      escapeCSV(inc.rule_name),
-      escapeCSV(inc.severity),
-      escapeCSV(inc.status),
-      escapeCSV(inc.verification_status),
-      escapeCSV(inc.file_path),
-      escapeCSV(inc.line_number),
-      escapeCSV(inc.masked_snippet),
-      escapeCSV(inc.commit_sha),
-      escapeCSV(inc.committer_handle || ""),
-      escapeCSV(inc.first_seen_at),
-      escapeCSV(inc.last_seen_at),
-    ]);
-
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `aegis-incidents-${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const toggleSelectAllPage = () => {
+    const next = new Set(selectedIds);
+    if (isAllPageSelected) {
+      paginatedIncidents.forEach((i) => next.delete(i.id));
+    } else {
+      paginatedIncidents.forEach((i) => next.add(i.id));
+    }
+    setSelectedIds(next);
   };
 
-  const exportToJSON = () => {
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-      JSON.stringify(sortedIncidents, null, 2)
-    )}`;
-    const link = document.createElement("a");
-    link.setAttribute("href", jsonString);
-    link.setAttribute("download", `aegis-incidents-${new Date().toISOString().split("T")[0]}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const toggleSelectRow = useCallback((id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  // Bulk Operations
+  const handleExecuteBulk = useCallback(async (status: "RESOLVED" | "DISMISSED") => {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(status);
+    try {
+      if (onBulkStatus) {
+        await onBulkStatus(Array.from(selectedIds), status);
+      } else {
+        selectedIds.forEach((id) => onTriageStatus(id, status));
+      }
+      clearSelection();
+    } catch (err) {
+      console.error("Bulk action failed:", err);
+    } finally {
+      setBulkActionLoading(null);
+    }
+  }, [selectedIds, onBulkStatus, onTriageStatus, clearSelection]);
+
+  // Keyboard Shortcuts Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if inside text inputs or textareas
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable ||
+        isShortcutsModalOpen
+      ) {
+        return;
+      }
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev + 1 >= paginatedIncidents.length ? 0 : prev + 1));
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev - 1 < 0 ? paginatedIncidents.length - 1 : prev - 1));
+      } else if (e.key === "Enter" && focusedIndex >= 0 && focusedIndex < paginatedIncidents.length) {
+        e.preventDefault();
+        onSelectIncident(paginatedIncidents[focusedIndex]);
+      } else if (e.key === "x" && focusedIndex >= 0 && focusedIndex < paginatedIncidents.length) {
+        e.preventDefault();
+        toggleSelectRow(paginatedIncidents[focusedIndex].id);
+      } else if (e.key === "e") {
+        e.preventDefault();
+        if (selectedIds.size > 0) {
+          handleExecuteBulk("RESOLVED");
+        } else if (focusedIndex >= 0 && focusedIndex < paginatedIncidents.length) {
+          onTriageStatus(paginatedIncidents[focusedIndex].id, "RESOLVED");
+        }
+      } else if (e.key === "?") {
+        e.preventDefault();
+        setIsShortcutsModalOpen((prev) => !prev);
+      } else if (e.key === "Escape") {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          clearSelection();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    paginatedIncidents,
+    focusedIndex,
+    selectedIds,
+    isShortcutsModalOpen,
+    onSelectIncident,
+    onTriageStatus,
+    handleExecuteBulk,
+    toggleSelectRow,
+    clearSelection,
+  ]);
+
+  const exportSelectedOrAll = (type: "csv" | "json") => {
+    const listToExport = selectedIds.size > 0
+      ? sortedIncidents.filter((i) => selectedIds.has(i.id))
+      : sortedIncidents;
+
+    if (type === "csv") {
+      const headers = [
+        "ID",
+        "Rule ID",
+        "Rule Name",
+        "Severity",
+        "Status",
+        "Verification Status",
+        "File Path",
+        "Line Number",
+        "Masked Snippet",
+        "Commit SHA",
+        "Committer",
+        "First Seen",
+        "Last Seen",
+      ];
+      const escapeCSV = (val: unknown) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+      const rows = listToExport.map((inc) => [
+        escapeCSV(inc.id),
+        escapeCSV(inc.rule_id),
+        escapeCSV(inc.rule_name),
+        escapeCSV(inc.severity),
+        escapeCSV(inc.status),
+        escapeCSV(inc.verification_status),
+        escapeCSV(inc.file_path),
+        escapeCSV(inc.line_number),
+        escapeCSV(inc.masked_snippet),
+        escapeCSV(inc.commit_sha),
+        escapeCSV(inc.committer_handle || ""),
+        escapeCSV(inc.first_seen_at),
+        escapeCSV(inc.last_seen_at),
+      ]);
+      const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `aegis-incidents-${new Date().toISOString().split("T")[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } else {
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+        JSON.stringify(listToExport, null, 2)
+      )}`;
+      const link = document.createElement("a");
+      link.setAttribute("href", jsonString);
+      link.setAttribute("download", `aegis-incidents-${new Date().toISOString().split("T")[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const renderSortIcon = (field: SortField) => {
@@ -167,283 +294,426 @@ export function IncidentTable({
   }
 
   return (
-    <div className="bg-surface border border-subtle rounded-xl overflow-hidden shadow-none">
-      {/* Table Subheader with Counter and Export Actions */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-subtle bg-canvas/30 text-xs">
-        <div className="text-muted">
-          Found <span className="font-semibold text-heading">{incidents.length}</span> incident{incidents.length === 1 ? "" : "s"}
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={exportToCSV}
-            title="Export filtered records to CSV"
-            className="flex items-center space-x-1.5 px-2.5 py-1 text-[11px] font-medium text-heading bg-canvas hover:bg-subtle border border-subtle rounded-lg transition-colors"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
-            <span>Export CSV</span>
-          </button>
-          <button
-            onClick={exportToJSON}
-            title="Export filtered records to JSON"
-            className="flex items-center space-x-1.5 px-2.5 py-1 text-[11px] font-medium text-heading bg-canvas hover:bg-subtle border border-subtle rounded-lg transition-colors"
-          >
-            <FileCode className="w-3.5 h-3.5 text-primary" />
-            <span>Export JSON</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse" role="table">
-          <thead>
-            <tr className="bg-canvas border-b border-subtle text-[11px] font-semibold uppercase tracking-wider text-muted select-none">
-              <th
-                scope="col"
-                onClick={() => handleSort("severity")}
-                className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
-              >
-                <div className="flex items-center">
-                  <span>Severity</span>
-                  {renderSortIcon("severity")}
-                </div>
-              </th>
-              <th
-                scope="col"
-                onClick={() => handleSort("rule_name")}
-                className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
-              >
-                <div className="flex items-center">
-                  <span>Rule & Secret Signature</span>
-                  {renderSortIcon("rule_name")}
-                </div>
-              </th>
-              <th
-                scope="col"
-                onClick={() => handleSort("file_path")}
-                className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
-              >
-                <div className="flex items-center">
-                  <span>Location</span>
-                  {renderSortIcon("file_path")}
-                </div>
-              </th>
-              <th scope="col" className="py-3.5 px-6">
-                Masked Token
-              </th>
-              <th
-                scope="col"
-                onClick={() => handleSort("verification_status")}
-                className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
-              >
-                <div className="flex items-center">
-                  <span>Verification</span>
-                  {renderSortIcon("verification_status")}
-                </div>
-              </th>
-              <th
-                scope="col"
-                onClick={() => handleSort("commit_sha")}
-                className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
-              >
-                <div className="flex items-center">
-                  <span>Commit</span>
-                  {renderSortIcon("commit_sha")}
-                </div>
-              </th>
-              <th scope="col" className="py-3.5 px-6 text-right">
-                Triage Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-subtle text-xs">
-            {paginatedIncidents.map((inc) => {
-              // Severity badge color mapping
-              let severityBadge = "bg-canvas text-muted border-subtle";
-              if (inc.severity === "CRITICAL") {
-                severityBadge = "bg-accent text-heading font-bold border-interactive";
-              } else if (inc.severity === "HIGH") {
-                severityBadge = "bg-subtle text-heading font-semibold border-subtle";
-              }
-
-              // Status styling
-              const isResolved = inc.status === "RESOLVED" || inc.status === "DISMISSED";
-              const isRegression = inc.status === "REGRESSION";
-
-              return (
-                <tr
-                  key={inc.id}
-                  onClick={() => onSelectIncident(inc)}
-                  className="hover:bg-canvas/50 transition-colors cursor-pointer group"
-                >
-                  {/* Severity */}
-                  <td className="py-4 px-6">
-                    <div className="flex items-center space-x-2">
-                      <span
-                        className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${severityBadge}`}
-                      >
-                        {inc.severity}
-                      </span>
-                      {isRegression && (
-                        <span className="text-[10px] bg-primary text-surface px-1.5 py-0.5 rounded font-bold">
-                          REGRESSION
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Rule Name */}
-                  <td className="py-4 px-6">
-                    <div>
-                      <div className="font-semibold text-heading group-hover:text-primary transition-colors">
-                        {inc.rule_name}
-                      </div>
-                      <div className="text-[11px] text-muted font-mono">{inc.rule_id}</div>
-                    </div>
-                  </td>
-
-                  {/* Location */}
-                  <td className="py-4 px-6">
-                    <div className="font-mono text-xs text-heading">
-                      {inc.file_path}
-                      <span className="text-muted">:{inc.line_number}</span>
-                    </div>
-                  </td>
-
-                  {/* Masked Snippet */}
-                  <td className="py-4 px-6">
-                    <span className="font-mono text-[11px] bg-canvas border border-subtle px-2.5 py-1 rounded text-heading">
-                      {inc.masked_snippet}
-                    </span>
-                  </td>
-
-                  {/* Verification Status */}
-                  <td className="py-4 px-6">
-                    {inc.verification_status === "ACTIVE" ? (
-                      <span className="inline-flex items-center space-x-1.5 bg-accent text-heading border border-interactive px-2 py-0.5 rounded text-[11px] font-bold">
-                        <AlertTriangle className="w-3 h-3" />
-                        <span>ACTIVE LEAK</span>
-                      </span>
-                    ) : inc.verification_status === "REVOKED" ? (
-                      <span className="inline-flex items-center space-x-1 bg-subtle text-muted border border-subtle px-2 py-0.5 rounded text-[11px]">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Revoked</span>
-                      </span>
-                    ) : (
-                      <span className="text-muted text-[11px] font-mono">
-                        {inc.verification_status}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Commit & Author */}
-                  <td className="py-4 px-6">
-                    <div className="flex items-center space-x-1.5 text-muted">
-                      <GitCommit className="w-3.5 h-3.5 text-muted" />
-                      <span className="font-mono text-xs">{inc.commit_sha.slice(0, 7)}</span>
-                      {inc.committer_handle && (
-                        <a
-                          href={`https://github.com/${inc.committer_handle.replace("@", "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-[11px] text-primary hover:underline inline-flex items-center space-x-0.5 font-mono"
-                          title={`View @${inc.committer_handle.replace("@", "")} on GitHub`}
-                        >
-                          <span>(@{inc.committer_handle.replace("@", "")})</span>
-                          <ExternalLink className="w-2.5 h-2.5 ml-0.5 opacity-70" />
-                        </a>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Triage Actions */}
-                  <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                    {!isResolved ? (
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTriageStatus(inc.id, "RESOLVED");
-                          }}
-                          title="Mark Resolved"
-                          className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded font-medium transition-colors cursor-pointer"
-                        >
-                          Resolve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTriageStatus(inc.id, "DISMISSED");
-                          }}
-                          title="Dismiss as False Positive"
-                          className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded transition-colors cursor-pointer"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-muted font-medium italic">
-                        {inc.status}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Footer Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 border-t border-subtle bg-canvas/30 text-xs text-muted">
-        <div className="flex items-center space-x-4">
-          <span>
-            Showing <span className="font-semibold text-heading">{Math.min(startIndex + 1, sortedIncidents.length)}</span> to{" "}
-            <span className="font-semibold text-heading">{Math.min(startIndex + pageSize, sortedIncidents.length)}</span> of{" "}
-            <span className="font-semibold text-heading">{sortedIncidents.length}</span> incidents
-          </span>
-          <div className="flex items-center space-x-1.5">
-            <span>Rows:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="bg-surface border border-subtle text-heading text-xs rounded px-2 py-0.5 focus:outline-none focus:border-interactive"
+    <>
+      <div className="relative bg-surface border border-subtle rounded-xl overflow-hidden shadow-none">
+        {/* Table Subheader with Counter, Hotkey trigger, and Export Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-6 py-3 border-b border-subtle bg-canvas/30 text-xs">
+          <div className="flex items-center space-x-3 text-muted">
+            <div>
+              Found <span className="font-semibold text-heading">{incidents.length}</span> incident{incidents.length === 1 ? "" : "s"}
+            </div>
+            {selectedIds.size > 0 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                {selectedIds.size} selected
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsShortcutsModalOpen(true)}
+              title="View Keyboard Shortcuts (?)"
+              className="flex items-center space-x-1 px-2.5 py-1 text-[11px] font-medium text-muted hover:text-heading bg-canvas hover:bg-subtle border border-subtle rounded-lg transition-colors cursor-pointer"
             >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
+              <Keyboard className="w-3.5 h-3.5 text-primary" />
+              <span>Shortcuts</span>
+              <kbd className="text-[9px] font-mono px-1 py-0.2 bg-surface rounded border border-subtle text-muted">?</kbd>
+            </button>
+            <button
+              type="button"
+              onClick={() => exportSelectedOrAll("csv")}
+              title={selectedIds.size > 0 ? "Export selected to CSV" : "Export filtered records to CSV"}
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-[11px] font-medium text-heading bg-canvas hover:bg-subtle border border-subtle rounded-lg transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
+              <span>{selectedIds.size > 0 ? `CSV (${selectedIds.size})` : "Export CSV"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => exportSelectedOrAll("json")}
+              title={selectedIds.size > 0 ? "Export selected to JSON" : "Export filtered records to JSON"}
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-[11px] font-medium text-heading bg-canvas hover:bg-subtle border border-subtle rounded-lg transition-colors cursor-pointer"
+            >
+              <FileCode className="w-3.5 h-3.5 text-primary" />
+              <span>{selectedIds.size > 0 ? `JSON (${selectedIds.size})` : "Export JSON"}</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={clampedPage <= 1}
-            className="flex items-center space-x-1 px-2.5 py-1 bg-surface border border-subtle rounded text-heading hover:bg-subtle disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Prev</span>
-          </button>
-          <span className="font-mono text-xs text-muted px-2">
-            Page {clampedPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={clampedPage >= totalPages}
-            className="flex items-center space-x-1 px-2.5 py-1 bg-surface border border-subtle rounded text-heading hover:bg-subtle disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <span>Next</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse" role="table">
+            <thead>
+              <tr className="bg-canvas border-b border-subtle text-[11px] font-semibold uppercase tracking-wider text-muted select-none">
+                {/* Select All Checkbox */}
+                <th scope="col" className="py-3.5 px-4 w-10 text-center">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllPage}
+                    className="p-1 rounded text-muted hover:text-heading focus:outline-hidden transition-colors cursor-pointer"
+                    title={isAllPageSelected ? "Deselect page" : "Select all on page"}
+                  >
+                    {isAllPageSelected ? (
+                      <CheckSquare className="w-4 h-4 text-primary" />
+                    ) : isSomePageSelected ? (
+                      <MinusSquare className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Square className="w-4 h-4 text-muted/60" />
+                    )}
+                  </button>
+                </th>
+                <th
+                  scope="col"
+                  onClick={() => handleSort("severity")}
+                  className="py-3.5 px-4 cursor-pointer hover:text-heading transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Severity</span>
+                    {renderSortIcon("severity")}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  onClick={() => handleSort("rule_name")}
+                  className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Rule & Secret Signature</span>
+                    {renderSortIcon("rule_name")}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  onClick={() => handleSort("file_path")}
+                  className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Location</span>
+                    {renderSortIcon("file_path")}
+                  </div>
+                </th>
+                <th scope="col" className="py-3.5 px-6">
+                  Masked Token
+                </th>
+                <th
+                  scope="col"
+                  onClick={() => handleSort("verification_status")}
+                  className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Verification</span>
+                    {renderSortIcon("verification_status")}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  onClick={() => handleSort("commit_sha")}
+                  className="py-3.5 px-6 cursor-pointer hover:text-heading transition-colors"
+                >
+                  <div className="flex items-center">
+                    <span>Commit</span>
+                    {renderSortIcon("commit_sha")}
+                  </div>
+                </th>
+                <th scope="col" className="py-3.5 px-6 text-right">
+                  Triage Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-subtle text-xs">
+              {paginatedIncidents.map((inc, idx) => {
+                const isSelected = selectedIds.has(inc.id);
+                const isFocused = focusedIndex === idx;
+
+                // Severity badge color mapping
+                let severityBadge = "bg-canvas text-muted border-subtle";
+                if (inc.severity === "CRITICAL") {
+                  severityBadge = "bg-accent text-heading font-bold border-interactive";
+                } else if (inc.severity === "HIGH") {
+                  severityBadge = "bg-subtle text-heading font-semibold border-subtle";
+                }
+
+                // Status styling
+                const isResolved = inc.status === "RESOLVED" || inc.status === "DISMISSED";
+                const isRegression = inc.status === "REGRESSION";
+
+                return (
+                  <tr
+                    key={inc.id}
+                    onClick={() => {
+                      setFocusedIndex(idx);
+                      onSelectIncident(inc);
+                    }}
+                    className={`transition-colors cursor-pointer group relative ${
+                      isSelected
+                        ? "bg-primary/5 hover:bg-primary/10"
+                        : isFocused
+                        ? "bg-canvas/80 ring-1 ring-primary/40 ring-inset"
+                        : "hover:bg-canvas/50"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <td
+                      className="py-4 px-4 text-center"
+                      onClick={(e) => toggleSelectRow(inc.id, e)}
+                    >
+                      <button
+                        type="button"
+                        className="p-1 rounded text-muted hover:text-heading focus:outline-hidden transition-colors cursor-pointer"
+                        title={isSelected ? "Deselect" : "Select row (x)"}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Square className="w-4 h-4 text-muted/40 group-hover:text-muted transition-colors" />
+                        )}
+                      </button>
+                    </td>
+
+                    {/* Severity */}
+                    <td className="py-4 px-4">
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${severityBadge}`}
+                        >
+                          {inc.severity}
+                        </span>
+                        {isRegression && (
+                          <span className="text-[10px] bg-primary text-surface px-1.5 py-0.5 rounded font-bold">
+                            REGRESSION
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Rule Name */}
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-semibold text-heading group-hover:text-primary transition-colors">
+                          {inc.rule_name}
+                        </div>
+                        <div className="text-[11px] text-muted font-mono">{inc.rule_id}</div>
+                      </div>
+                    </td>
+
+                    {/* Location */}
+                    <td className="py-4 px-6">
+                      <div className="font-mono text-xs text-heading">
+                        {inc.file_path}
+                        <span className="text-muted">:{inc.line_number}</span>
+                      </div>
+                    </td>
+
+                    {/* Masked Snippet */}
+                    <td className="py-4 px-6">
+                      <span className="font-mono text-[11px] bg-canvas border border-subtle px-2.5 py-1 rounded text-heading">
+                        {inc.masked_snippet}
+                      </span>
+                    </td>
+
+                    {/* Verification Status */}
+                    <td className="py-4 px-6">
+                      {inc.verification_status === "ACTIVE" ? (
+                        <span className="inline-flex items-center space-x-1.5 bg-accent text-heading border border-interactive px-2 py-0.5 rounded text-[11px] font-bold">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>ACTIVE LEAK</span>
+                        </span>
+                      ) : inc.verification_status === "REVOKED" ? (
+                        <span className="inline-flex items-center space-x-1 bg-subtle text-muted border border-subtle px-2 py-0.5 rounded text-[11px]">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Revoked</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted text-[11px] font-mono">
+                          {inc.verification_status}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Commit & Author */}
+                    <td className="py-4 px-6">
+                      <div className="flex items-center space-x-1.5 text-muted">
+                        <GitCommit className="w-3.5 h-3.5 text-muted" />
+                        <span className="font-mono text-xs">{inc.commit_sha.slice(0, 7)}</span>
+                        {inc.committer_handle && (
+                          <a
+                            href={`https://github.com/${inc.committer_handle.replace("@", "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-primary hover:underline inline-flex items-center space-x-0.5 font-mono"
+                            title={`View @${inc.committer_handle.replace("@", "")} on GitHub`}
+                          >
+                            <span>(@{inc.committer_handle.replace("@", "")})</span>
+                            <ExternalLink className="w-2.5 h-2.5 ml-0.5 opacity-70" />
+                          </a>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Triage Actions */}
+                    <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
+                      {!isResolved ? (
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTriageStatus(inc.id, "RESOLVED");
+                            }}
+                            title="Mark Resolved (e)"
+                            className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded-lg font-medium transition-colors cursor-pointer"
+                          >
+                            Resolve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTriageStatus(inc.id, "DISMISSED");
+                            }}
+                            title="Dismiss as False Positive"
+                            className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded-lg transition-colors cursor-pointer"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-muted font-medium italic">
+                          {inc.status}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 border-t border-subtle bg-canvas/30 text-xs text-muted">
+          <div className="flex items-center space-x-4">
+            <span>
+              Showing <span className="font-semibold text-heading">{Math.min(startIndex + 1, sortedIncidents.length)}</span> to{" "}
+              <span className="font-semibold text-heading">{Math.min(startIndex + pageSize, sortedIncidents.length)}</span> of{" "}
+              <span className="font-semibold text-heading">{sortedIncidents.length}</span> incidents
+            </span>
+            <div className="flex items-center space-x-1.5">
+              <span>Rows:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                  setFocusedIndex(-1);
+                }}
+                className="bg-surface border border-subtle text-heading text-xs rounded px-2 py-0.5 focus:outline-hidden focus:border-interactive"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => {
+                setCurrentPage((p) => Math.max(1, p - 1));
+                setFocusedIndex(-1);
+              }}
+              disabled={clampedPage <= 1}
+              className="flex items-center space-x-1 px-2.5 py-1 bg-surface border border-subtle rounded text-heading hover:bg-subtle disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Prev</span>
+            </button>
+            <span className="font-mono text-xs text-muted px-2">
+              Page {clampedPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => {
+                setCurrentPage((p) => Math.min(totalPages, p + 1));
+                setFocusedIndex(-1);
+              }}
+              disabled={clampedPage >= totalPages}
+              className="flex items-center space-x-1 px-2.5 py-1 bg-surface border border-subtle rounded text-heading hover:bg-subtle disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Floating Glassmorphic Bulk Action Pill */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-5 fade-in duration-200">
+          <div className="flex items-center space-x-3 px-4 py-2.5 bg-surface/95 backdrop-blur-xl border border-primary/30 rounded-2xl shadow-2xl text-xs">
+            <div className="flex items-center space-x-2 pr-2 border-r border-subtle">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="font-semibold text-heading">
+                {selectedIds.size} {selectedIds.size === 1 ? "incident" : "incidents"} selected
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                disabled={bulkActionLoading !== null}
+                onClick={() => handleExecuteBulk("RESOLVED")}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-semibold bg-primary text-surface hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-xs"
+              >
+                {bulkActionLoading === "RESOLVED" ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                <span>Resolve All</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={bulkActionLoading !== null}
+                onClick={() => handleExecuteBulk("DISMISSED")}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-medium bg-canvas hover:bg-subtle border border-subtle text-heading transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {bulkActionLoading === "DISMISSED" ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 text-muted" />
+                )}
+                <span>Dismiss All</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => exportSelectedOrAll("json")}
+                className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl font-medium bg-canvas hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors cursor-pointer"
+              >
+                <FileCode className="w-3.5 h-3.5 text-primary" />
+                <span>Export JSON</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={clearSelection}
+                title="Deselect all (Esc)"
+                className="p-1.5 rounded-lg text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
+    </>
   );
 }

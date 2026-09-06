@@ -29,6 +29,7 @@ import {
   fetchTelemetry,
   fetchOrganizations,
   updateIncidentStatus,
+  bulkUpdateIncidentStatus,
   triggerScanAllRepositories,
   resendOtp,
 } from "@/lib/api";
@@ -186,6 +187,35 @@ export default function DashboardPage() {
         type: "error",
         title: "Triage update failed",
         description: "Could not reach control plane. Reverting state.",
+      });
+    }
+  };
+
+  // Bulk Triage Status Handler
+  const handleBulkStatus = async (ids: string[], newStatus: "RESOLVED" | "DISMISSED") => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+
+    // 1. Optimistic local update
+    setIncidents((prev) =>
+      prev.map((inc) => (idSet.has(inc.id) ? { ...inc, status: newStatus } : inc))
+    );
+
+    try {
+      await bulkUpdateIncidentStatus(ids, newStatus);
+      fetchTelemetry(user?.organization_id || undefined).then((t) => t && setTelemetry(t)).catch(() => {});
+      toast({
+        type: newStatus === "RESOLVED" ? "success" : "info",
+        title: `Bulk triage: ${ids.length} incidents ${newStatus.toLowerCase()}`,
+        description: `Successfully updated ${ids.length} findings in forensic audit trail.`,
+      });
+    } catch (err) {
+      console.error("Bulk status update failed, reverting:", err);
+      loadDashboardData(user?.organization_id);
+      toast({
+        type: "error",
+        title: "Bulk update failed",
+        description: "Could not synchronize bulk triage with control plane.",
       });
     }
   };
@@ -430,6 +460,7 @@ export default function DashboardPage() {
                   incidents={filteredIncidents}
                   onSelectIncident={(inc) => setSelectedIncident(inc)}
                   onTriageStatus={handleTriageStatus}
+                  onBulkStatus={handleBulkStatus}
                 />
               </>
             )}

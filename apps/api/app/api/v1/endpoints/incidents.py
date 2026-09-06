@@ -12,7 +12,12 @@ from app.models.incident import Incident
 from app.models.repository import Repository
 from app.models.user import User
 from app.schemas.audit import IncidentAuditRead
-from app.schemas.incident import IncidentRead, IncidentStatusUpdate
+from app.schemas.incident import (
+    BulkIncidentStatusResponse,
+    BulkIncidentStatusUpdate,
+    IncidentRead,
+    IncidentStatusUpdate,
+)
 
 router = APIRouter()
 
@@ -137,4 +142,59 @@ async def get_incident_audits(
     )
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+@router.post("/bulk-status", response_model=BulkIncidentStatusResponse, summary="Bulk triage / dismiss incidents")
+async def bulk_update_incidents_status(
+    bulk_data: BulkIncidentStatusUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Incident)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .where(Incident.id.in_(bulk_data.incident_ids))
+    )
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+
+    result = await db.execute(stmt)
+    incidents = result.scalars().all()
+
+    if not incidents:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No accessible incidents found for the provided IDs",
+        )
+
+    now = datetime.now(timezone.utc)
+    actor = current_user.email or current_user.full_name or "OPERATOR"
+    updated_ids: list[uuid.UUID] = []
+
+    for incident in incidents:
+        old_status = incident.status
+        incident.status = bulk_data.status
+        if bulk_data.status in ("RESOLVED", "DISMISSED"):
+            incident.resolved_at = now
+        elif bulk_data.status == "OPEN":
+            incident.resolved_at = None
+
+        audit = IncidentAudit(
+            incident_id=incident.id,
+            actor_id=actor,
+            action=f"BULK_STATUS_CHANGE_{bulk_data.status}",
+            previous_state={"status": old_status},
+            new_state={"status": bulk_data.status, "reason": bulk_data.reason},
+            created_at=now,
+        )
+        db.add(audit)
+        updated_ids.append(incident.id)
+
+    await db.commit()
+    return BulkIncidentStatusResponse(
+        updated_count=len(updated_ids),
+        status=bulk_data.status,
+        incident_ids=updated_ids,
+    )
+
 

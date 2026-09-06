@@ -35,3 +35,16 @@ class IncidentStatusUpdate(BaseModel):
     status: str = Field(..., pattern=r"^(OPEN|RESOLVED|DISMISSED)$")
     actor_id: str = Field("OPERATOR", min_length=1, max_length=255)
     reason: Optional[str] = None
+
+
+class BulkIncidentStatusUpdate(BaseModel):
+    incident_ids: list[uuid.UUID] = Field(..., min_length=1, max_length=500)
+    status: str = Field(..., pattern=r"^(OPEN|RESOLVED|DISMISSED)$")
+    reason: Optional[str] = None
+
+
+class BulkIncidentStatusResponse(BaseModel):
+    updated_count: int
+    status: str
+    incident_ids: list[uuid.UUID]
+
