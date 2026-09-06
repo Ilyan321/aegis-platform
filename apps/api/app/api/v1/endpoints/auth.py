@@ -614,12 +614,14 @@ def get_effective_frontend_url(request: Request, custom_destination: Optional[st
         return settings.FRONTEND_URL.rstrip("/")
 
     referer = request.headers.get("referer", "")
-    if "vercel.app" in referer:
+    if "vercel.app" in referer or "ilyankhan.tech" in referer:
         from urllib.parse import urlparse
         parsed = urlparse(referer)
         return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    if "aegis-api.ilyankhan.tech" in host:
+        return "https://aegis-platform.ilyankhan.tech"
     if "render.com" in host:
         return "https://aegis-platform-web.vercel.app"
 

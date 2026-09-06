@@ -38,13 +38,13 @@ class Settings(BaseSettings):
 
     # Email / Resend
     RESEND_API_KEY: str = ""
-    EMAIL_FROM: str = "Aegis Security <onboarding@resend.dev>"
+    EMAIL_FROM: str = "Aegis Security <noreply@aegis-platform-mail.ilyankhan.tech>"
 
     # Webhook defaults
     WEBHOOK_SECRET_DEFAULT: str = "aegis-default-webhook-secret"
 
     # CORS & Domains
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform-web.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform-web.vercel.app,https://aegis-platform.ilyankhan.tech,https://aegis.ilyankhan.tech,https://aegis-api.ilyankhan.tech"
     FRONTEND_URL: str = Field(
         default="https://aegis-platform-web.vercel.app" if os.getenv("RENDER") else "http://localhost:3000"
     )
