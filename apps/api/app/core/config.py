@@ -11,6 +11,7 @@ ENV_FILE_PATH = API_DIR / ".env"
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
+    DEBUG: bool = False
     PORT: int = 8000
     SECRET_KEY: str = "change-this-to-a-secure-random-32-character-secret"
 
@@ -40,8 +41,8 @@ class Settings(BaseSettings):
 
     # CORS & Domains
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform-web.vercel.app"
-    FRONTEND_URL: str = "https://aegis-platform-web.vercel.app"
-    BACKEND_URL: str = "https://aegis-platform-wwgp.onrender.com"
+    FRONTEND_URL: str = Field(default="http://localhost:3000")
+    BACKEND_URL: str = Field(default="http://localhost:8000")
 
     # OAuth Providers
     GITHUB_CLIENT_ID: str = ""

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { X, ShieldAlert, History, Copy } from "lucide-react";
 import { Incident, IncidentAudit, fetchIncidentAudits, updateIncidentStatus } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
+import { useAuth } from "@/context/AuthContext";
 
 interface IncidentDetailModalProps {
   incident: Incident | null;
@@ -17,6 +18,7 @@ export function IncidentDetailModal({
   onStatusUpdated,
 }: IncidentDetailModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [audits, setAudits] = useState<IncidentAudit[]>([]);
   const [loadingAudits, setLoadingAudits] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -36,7 +38,7 @@ export function IncidentDetailModal({
   const handleAction = async (newStatus: "RESOLVED" | "DISMISSED" | "OPEN") => {
     try {
       setUpdating(true);
-      const updated = await updateIncidentStatus(incident.id, newStatus);
+      const updated = await updateIncidentStatus(incident.id, newStatus, undefined, user?.email);
       onStatusUpdated(updated);
       toast({
         type: newStatus === "RESOLVED" ? "success" : "info",

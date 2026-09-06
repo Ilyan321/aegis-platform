@@ -1,0 +1,27 @@
+name: Keep-Alive Health Probe
+
+on:
+  schedule:
+    # Trigger every 10 minutes to prevent Render free-tier instance from sleeping (timeout is 15 mins)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Aegis API Health Endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Keep-Alive Endpoint
+        run: |
+          API_URL="${{ vars.AEGIS_API_URL }}"
+          if [ -z "$API_URL" ]; then
+            API_URL="https://aegis-platform-wwgp.onrender.com"
+          fi
+          echo "Pinging health endpoint: ${API_URL}/health"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${API_URL}/health")
+          echo "HTTP Status Response: ${HTTP_STATUS}"
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "API is healthy and keep-alive ping succeeded."
+          else
+            echo "::warning ::Keep-alive ping returned non-200 status ($HTTP_STATUS). API may be sleeping or cold-starting."
+          fi

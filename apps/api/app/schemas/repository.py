@@ -29,7 +29,7 @@ class RepositoryBase(BaseModel):
 
 
 class RepositoryCreate(RepositoryBase):
-    organization_id: uuid.UUID
+    organization_id: Optional[uuid.UUID] = None
     webhook_secret: Optional[str] = Field(None, description="Secret used to validate HMAC on incoming webhooks")
 
 

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limiter import RateLimiter
 from app.core.security import (
     create_access_token,
     get_current_user,
@@ -27,6 +28,7 @@ from app.schemas.auth import (
 
 router = APIRouter()
 logger = logging.getLogger("aegis.auth")
+login_limiter = RateLimiter(times=10, seconds=60)
 
 
 @router.post(
@@ -83,6 +85,7 @@ async def register(
 @router.post(
     "/login",
     response_model=TokenResponse,
+    dependencies=[Depends(login_limiter)],
     summary="Authenticate user with email and password",
 )
 async def login(
@@ -241,7 +244,7 @@ async def github_callback(
             # Link or update provider profile info
             user.provider = "github"
             user.provider_id = gh_id
-            user.github_access_token = gh_token
+            user.set_github_token(gh_token)
             if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
             if name and not user.full_name:
@@ -266,10 +269,10 @@ async def github_callback(
                 avatar_url=avatar_url,
                 provider="github",
                 provider_id=gh_id,
-                github_access_token=gh_token,
                 organization_id=org.id,
                 is_active=True,
             )
+            user.set_github_token(gh_token)
             db.add(user)
 
         await db.commit()
@@ -290,7 +293,7 @@ async def get_github_repos(
     current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Fetches real repositories from GitHub API using the user's OAuth access token or public username."""
-    token = current_user.github_access_token if current_user else None
+    token = current_user.get_github_token() if current_user else None
 
     headers = {
         "Accept": "application/vnd.github.v3+json",

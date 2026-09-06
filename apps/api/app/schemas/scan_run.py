@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ScanRunBase(BaseModel):
     repository_id: uuid.UUID
-    commit_sha: str = Field(..., min_length=7, max_length=64)
+    commit_sha: str = Field(..., min_length=1, max_length=64)
     branch: str = Field(..., max_length=255)
     trigger_source: str = Field("webhook", max_length=50)
 

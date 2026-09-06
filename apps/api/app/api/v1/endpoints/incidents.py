@@ -6,9 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.audit import IncidentAudit
 from app.models.incident import Incident
 from app.models.repository import Repository
+from app.models.user import User
 from app.schemas.audit import IncidentAuditRead
 from app.schemas.incident import IncidentRead, IncidentStatusUpdate
 
@@ -17,20 +19,18 @@ router = APIRouter()
 
 @router.get("", response_model=List[IncidentRead], summary="List security incidents")
 async def list_incidents(
-    organization_id: Optional[uuid.UUID] = None,
     repository_id: Optional[uuid.UUID] = None,
     status: Optional[str] = Query(None, pattern=r"^(OPEN|RESOLVED|REGRESSION|DISMISSED)$"),
     severity: Optional[str] = Query(None, pattern=r"^(CRITICAL|HIGH|MEDIUM|LOW)$"),
     verification_status: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Incident)
-    if organization_id:
-        stmt = stmt.join(Repository, Incident.repository_id == Repository.id).where(
-            Repository.organization_id == organization_id
-        )
+    stmt = select(Incident).join(Repository, Incident.repository_id == Repository.id)
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
     if repository_id:
         stmt = stmt.where(Incident.repository_id == repository_id)
     if status:
@@ -45,13 +45,22 @@ async def list_incidents(
     return result.scalars().all()
 
 
-
 @router.get("/{incident_id}", response_model=IncidentRead, summary="Get incident by ID")
 async def get_incident(
     incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    incident = await db.get(Incident, incident_id)
+    stmt = (
+        select(Incident)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .where(Incident.id == incident_id)
+    )
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+
+    result = await db.execute(stmt)
+    incident = result.scalar_one_or_none()
     if not incident:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
     return incident
@@ -61,9 +70,19 @@ async def get_incident(
 async def update_incident_status(
     incident_id: uuid.UUID,
     status_update: IncidentStatusUpdate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    incident = await db.get(Incident, incident_id)
+    stmt = (
+        select(Incident)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .where(Incident.id == incident_id)
+    )
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+
+    result = await db.execute(stmt)
+    incident = result.scalar_one_or_none()
     if not incident:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
@@ -76,10 +95,12 @@ async def update_incident_status(
     elif status_update.status == "OPEN":
         incident.resolved_at = None
 
+    actor = current_user.email or current_user.full_name or status_update.actor_id
+
     # Record append-only audit trail
     audit = IncidentAudit(
         incident_id=incident.id,
-        actor_id=status_update.actor_id,
+        actor_id=actor,
         action=f"STATUS_CHANGE_{status_update.status}",
         previous_state={"status": old_status},
         new_state={"status": status_update.status, "reason": status_update.reason},
@@ -94,8 +115,21 @@ async def update_incident_status(
 @router.get("/{incident_id}/audits", response_model=List[IncidentAuditRead], summary="Get incident audit history")
 async def get_incident_audits(
     incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    stmt_inc = (
+        select(Incident.id)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .where(Incident.id == incident_id)
+    )
+    if current_user.organization_id:
+        stmt_inc = stmt_inc.where(Repository.organization_id == current_user.organization_id)
+
+    valid_id = (await db.execute(stmt_inc)).scalar_one_or_none()
+    if not valid_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+
     stmt = (
         select(IncidentAudit)
         .where(IncidentAudit.incident_id == incident_id)
@@ -103,3 +137,4 @@ async def get_incident_audits(
     )
     result = await db.execute(stmt)
     return result.scalars().all()
+

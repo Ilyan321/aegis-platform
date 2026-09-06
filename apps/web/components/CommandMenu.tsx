@@ -11,6 +11,7 @@ interface CommandMenuProps {
   incidents: Incident[];
   repositories: Repository[];
   onSelectIncident: (inc: Incident) => void;
+  onSelectRepository?: (repo: Repository) => void;
   onOpenOnboard: () => void;
   onSetTab: (tab: string) => void;
   onSetView?: (view: "incidents" | "repositories" | "scans") => void;
@@ -23,6 +24,7 @@ export function CommandMenu({
   incidents,
   repositories,
   onSelectIncident,
+  onSelectRepository,
   onOpenOnboard,
   onSetTab,
   onSetView,
@@ -195,7 +197,12 @@ export function CommandMenu({
                   <Command.Item
                     key={repo.id}
                     onSelect={() => {
-                      onSetTab("ALL");
+                      if (onSelectRepository) {
+                        onSelectRepository(repo);
+                      } else {
+                        onSetTab("ALL");
+                        if (onSetView) onSetView("incidents");
+                      }
                       onClose();
                     }}
                     className="flex items-center justify-between px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"

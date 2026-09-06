@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import os
@@ -90,3 +91,32 @@ def decrypt_secret(encrypted_blob: bytes) -> Optional[str]:
         return plaintext.decode("utf-8")
     except Exception:
         return None
+
+
+def encrypt_token_b64(raw_token: Optional[str]) -> Optional[str]:
+    """
+    Encrypts a raw string token using AES-256-GCM and encodes it as a Base64 string.
+    """
+    if not raw_token:
+        return None
+    encrypted_bytes = encrypt_secret(raw_token)
+    return base64.b64encode(encrypted_bytes).decode("ascii")
+
+
+def decrypt_token_b64(encrypted_b64: Optional[str]) -> Optional[str]:
+    """
+    Decrypts a Base64-encoded AES-256-GCM token string.
+    Includes backward-compatible fallback if the string was stored in plaintext.
+    """
+    if not encrypted_b64:
+        return None
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_b64.encode("ascii"))
+        decrypted = decrypt_secret(encrypted_bytes)
+        if decrypted is not None:
+            return decrypted
+    except Exception:
+        pass
+    # Fallback in case raw token was stored before encryption migration
+    return encrypted_b64
+

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.celery_app import celery_app
 from app.core.database import get_db
+from app.core.rate_limiter import RateLimiter
 from app.models.organization import Organization
 from app.models.repository import Repository
 from app.models.scan_run import ScanRun
@@ -16,12 +17,14 @@ from app.services.webhook_auth import verify_github_signature
 
 router = APIRouter()
 logger = logging.getLogger("aegis.webhooks")
+webhook_limiter = RateLimiter(times=120, seconds=60)
 
 
 @router.post(
     "/github",
     response_model=WebhookIngestResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(webhook_limiter)],
     summary="GitHub Webhook Ingestion Gateway",
     description="Validates HMAC signature and immediately enqueues asynchronous scan to Upstash Redis in <35ms.",
 )
@@ -102,8 +105,22 @@ async def handle_github_webhook(
         await db.flush()
 
     # 5. Validate HMAC signature
-    # In production, require valid HMAC. In dev, skip if no signature provided.
-    if x_hub_signature_256 or settings.ENVIRONMENT == "production":
+    # In production or non-debug environments, HMAC is strictly required.
+    # If a webhook signature header is provided, it is always strictly verified.
+    enforce_hmac = (
+        settings.ENVIRONMENT == "production"
+        or not settings.DEBUG
+        or bool(x_hub_signature_256)
+    )
+    if enforce_hmac:
+        if not x_hub_signature_256:
+            logger.warning(
+                f"Missing HMAC signature header for repo={repo_full_name} delivery={x_github_delivery}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing HMAC-SHA256 signature (X-Hub-Signature-256)",
+            )
         is_valid = verify_github_signature(
             raw_body=raw_body,
             secret=repository.webhook_secret,
@@ -118,17 +135,39 @@ async def handle_github_webhook(
                 detail="Invalid HMAC-SHA256 signature (X-Hub-Signature-256)",
             )
 
-    # 6. Extract commit and branch
-    ref = payload.get("ref", "")
-    branch = ref.replace("refs/heads/", "") if "refs/heads/" in ref else (ref or repository.default_branch)
-    commit_sha = payload.get("after") or payload.get("head_commit", {}).get("id")
+    # 6. Extract commit and branch based on event type
+    if x_github_event == "pull_request":
+        pr_data = payload.get("pull_request", {})
+        action = payload.get("action", "")
+        if action not in ("opened", "synchronize", "reopened"):
+            response.status_code = status.HTTP_200_OK
+            return WebhookIngestResponse(
+                status="ignored",
+                message=f"Pull request action '{action}' skipped",
+                delivery_id=x_github_delivery,
+                repository=repo_full_name,
+                branch=repository.default_branch,
+                commit_sha="n/a",
+            )
+        head_data = pr_data.get("head", {})
+        branch = head_data.get("ref") or repository.default_branch
+        commit_sha = head_data.get("sha")
+        pusher = pr_data.get("user", {}).get("login") or payload.get("sender", {}).get("login")
+        trigger_source = "pull_request"
+    else:
+        # push event (default)
+        ref = payload.get("ref", "")
+        branch = ref.replace("refs/heads/", "") if "refs/heads/" in ref else (ref or repository.default_branch)
+        commit_sha = payload.get("after") or payload.get("head_commit", {}).get("id")
+        pusher = payload.get("pusher", {}).get("name") or payload.get("sender", {}).get("login")
+        trigger_source = "webhook"
 
-    # If branch was deleted (commit is 40 zeroes), acknowledge without scanning
+    # If branch was deleted (commit is 40 zeroes) or commit is missing, acknowledge without scanning
     if not commit_sha or commit_sha == "0000000000000000000000000000000000000000":
         response.status_code = status.HTTP_200_OK
         return WebhookIngestResponse(
             status="ignored",
-            message="Branch deletion detected; scan skipped",
+            message="No active commit SHA or branch deletion detected; scan skipped",
             delivery_id=x_github_delivery,
             repository=repo_full_name,
             branch=branch,
@@ -140,7 +179,7 @@ async def handle_github_webhook(
         repository_id=repository.id,
         commit_sha=commit_sha,
         branch=branch,
-        trigger_source="webhook",
+        trigger_source=trigger_source,
         status="QUEUED",
     )
     db.add(scan_run)

@@ -79,25 +79,47 @@ export function getOAuthUrl(provider: "github" | "google", mode: "login" | "sign
   return `${API_BASE}/api/v1/auth/${provider}?mode=${mode}`;
 }
 
+export async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getStoredToken();
+  const headers = new Headers(options.headers || {});
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (!headers.has("Content-Type") && options.body && typeof options.body === "string") {
+    headers.set("Content-Type", "application/json");
+  }
 
-export async function fetchTelemetry(organizationId?: string): Promise<TelemetryData> {
-  const url = new URL(`${API_BASE}/api/v1/telemetry`);
-  if (organizationId) url.searchParams.set("organization_id", organizationId);
-  const res = await fetch(url.toString(), { cache: "no-store" });
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+    cache: "no-store",
+  });
+
   if (!res.ok) {
-    throw new Error(`Failed to fetch telemetry: ${res.statusText}`);
+    if (res.status === 401 && typeof window !== "undefined") {
+      removeStoredToken();
+    }
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `Request failed with status ${res.status}`);
+  }
+
+  if (res.status === 204) {
+    return null as T;
   }
   return res.json();
 }
 
+export async function fetchTelemetry(organizationId?: string): Promise<TelemetryData> {
+  const query = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+  return apiFetch<TelemetryData>(`/api/v1/telemetry${query}`);
+}
+
 export async function fetchRepositories(organizationId?: string): Promise<Repository[]> {
-  const url = new URL(`${API_BASE}/api/v1/repositories`);
-  if (organizationId) url.searchParams.set("organization_id", organizationId);
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch repositories: ${res.statusText}`);
-  }
-  return res.json();
+  const query = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+  return apiFetch<Repository[]>(`/api/v1/repositories${query}`);
 }
 
 export async function fetchIncidents(filter?: {
@@ -106,83 +128,71 @@ export async function fetchIncidents(filter?: {
   repository_id?: string;
   organization_id?: string;
 }): Promise<Incident[]> {
-  const url = new URL(`${API_BASE}/api/v1/incidents`);
+  const params = new URLSearchParams();
   if (filter?.status && filter.status !== "ALL") {
-    url.searchParams.set("status", filter.status);
+    params.set("status", filter.status);
   }
   if (filter?.severity) {
-    url.searchParams.set("severity", filter.severity);
+    params.set("severity", filter.severity);
   }
   if (filter?.repository_id) {
-    url.searchParams.set("repository_id", filter.repository_id);
+    params.set("repository_id", filter.repository_id);
   }
   if (filter?.organization_id) {
-    url.searchParams.set("organization_id", filter.organization_id);
+    params.set("organization_id", filter.organization_id);
   }
-
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch incidents: ${res.statusText}`);
-  }
-  return res.json();
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<Incident[]>(`/api/v1/incidents${query}`);
 }
-
 
 export async function updateIncidentStatus(
   id: string,
   newStatus: "OPEN" | "RESOLVED" | "DISMISSED",
-  reason?: string
+  reason?: string,
+  actorEmail?: string
 ): Promise<Incident> {
-  const res = await fetch(`${API_BASE}/api/v1/incidents/${id}/status`, {
+  return apiFetch<Incident>(`/api/v1/incidents/${id}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       status: newStatus,
-      actor_id: "DASHBOARD_OPERATOR",
+      actor_id: actorEmail || "DASHBOARD_OPERATOR",
       reason: reason || "Status updated via Aegis Console",
     }),
   });
-  if (!res.ok) {
-    throw new Error(`Failed to update incident: ${res.statusText}`);
-  }
-  return res.json();
 }
 
 export async function fetchIncidentAudits(id: string): Promise<IncidentAudit[]> {
-  const res = await fetch(`${API_BASE}/api/v1/incidents/${id}/audits`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch incident audits: ${res.statusText}`);
-  }
-  return res.json();
+  return apiFetch<IncidentAudit[]>(`/api/v1/incidents/${id}/audits`);
 }
 
 export async function createRepository(payload: {
-  organization_id: string;
+  organization_id?: string;
   full_name: string;
   clone_url: string;
   default_branch?: string;
   webhook_secret?: string;
   github_repo_id?: number | null;
 }): Promise<Repository> {
-  const res = await fetch(`${API_BASE}/api/v1/repositories`, {
+  return apiFetch<Repository>("/api/v1/repositories", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || "Failed to create repository");
-  }
-  return res.json();
 }
 
 export async function deleteRepository(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/repositories/${id}`, {
+  return apiFetch<void>(`/api/v1/repositories/${id}`, {
     method: "DELETE",
   });
-  if (!res.ok && res.status !== 204) {
-    throw new Error(`Failed to delete repository: ${res.statusText}`);
-  }
+}
+
+export async function triggerRepositoryScan(repoId: string): Promise<ScanRun> {
+  return apiFetch<ScanRun>(`/api/v1/repositories/${repoId}/scan`, {
+    method: "POST",
+  });
+}
+
+export async function fetchRepositoryScans(repoId: string): Promise<ScanRun[]> {
+  return apiFetch<ScanRun[]>(`/api/v1/repositories/${repoId}/scans`);
 }
 
 export interface GitHubRepoItem {
@@ -203,25 +213,18 @@ export interface GitHubRepoResponse {
 }
 
 export async function fetchGitHubRepositories(username?: string): Promise<GitHubRepoResponse> {
-  const token = getStoredToken();
-  const url = new URL(`${API_BASE}/api/v1/auth/github/repos`);
-  if (username) url.searchParams.set("username", username);
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(url.toString(), { headers, cache: "no-store" });
-  if (!res.ok) {
+  const params = new URLSearchParams();
+  if (username) params.set("username", username);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  try {
+    return await apiFetch<GitHubRepoResponse>(`/api/v1/auth/github/repos${query}`);
+  } catch {
     return { connected: false, repositories: [] };
   }
-  return res.json();
 }
 
 export async function fetchOrganizations(): Promise<Array<{ id: string; name: string; slug: string }>> {
-  const res = await fetch(`${API_BASE}/api/v1/organizations`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch organizations: ${res.statusText}`);
-  }
-  return res.json();
+  return apiFetch<Array<{ id: string; name: string; slug: string }>>("/api/v1/organizations");
 }
 
 export interface User {

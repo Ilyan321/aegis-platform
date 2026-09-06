@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { GitFork, GitBranch, Plus, Search, Copy, Shield, Trash2, Loader2 } from "lucide-react";
-import { Repository, deleteRepository } from "@/lib/api";
+import { GitFork, GitBranch, Plus, Search, Copy, Shield, Trash2, Loader2, Play } from "lucide-react";
+import { Repository, deleteRepository, triggerRepositoryScan } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 
 interface RepositoriesViewProps {
   repositories: Repository[];
   onOpenOnboardModal: () => void;
   onRepositoryDeleted?: (id: string) => void;
+  onScanTriggered?: () => void;
   loading?: boolean;
 }
 
@@ -16,12 +17,40 @@ export function RepositoriesView({
   repositories,
   onOpenOnboardModal,
   onRepositoryDeleted,
+  onScanTriggered,
   loading = false,
 }: RepositoriesViewProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
+
+  const handleTriggerScan = async (repo: Repository) => {
+    setScanningIds((prev) => new Set(prev).add(repo.id));
+    try {
+      await triggerRepositoryScan(repo.id);
+      toast({
+        type: "success",
+        title: "Scan initiated",
+        description: `Deep secret scan queued for ${repo.full_name}.`,
+      });
+      onScanTriggered?.();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to trigger scan";
+      toast({
+        type: "error",
+        title: "Scan trigger failed",
+        description: message,
+      });
+    } finally {
+      setScanningIds((prev) => {
+        const next = new Set(prev);
+        next.delete(repo.id);
+        return next;
+      });
+    }
+  };
 
   const filtered = repositories.filter((r) =>
     r.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -225,15 +254,37 @@ export function RepositoriesView({
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteId(repo.id)}
-                    className="p-1 rounded-md text-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-                    title={`Disconnect ${repo.full_name}`}
-                    aria-label={`Disconnect ${repo.full_name}`}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerScan(repo)}
+                      disabled={scanningIds.has(repo.id)}
+                      className="flex items-center space-x-1 px-2.5 py-1 rounded text-[11px] font-medium text-heading hover:bg-canvas border border-subtle hover:border-interactive transition-colors cursor-pointer disabled:opacity-50"
+                      title={`Run scan on ${repo.full_name}`}
+                      aria-label={`Run scan on ${repo.full_name}`}
+                    >
+                      {scanningIds.has(repo.id) ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                          <span>Scanning...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 text-primary fill-current" />
+                          <span>Scan</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(repo.id)}
+                      className="p-1 rounded-md text-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                      title={`Disconnect ${repo.full_name}`}
+                      aria-label={`Disconnect ${repo.full_name}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

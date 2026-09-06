@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import (
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
@@ -19,6 +20,10 @@ class Incident(Base):
     __tablename__ = "incidents"
     __table_args__ = (
         UniqueConstraint("repository_id", "fingerprint", name="uq_repo_fingerprint"),
+        Index("ix_incidents_repo_status_last_seen", "repository_id", "status", "last_seen_at"),
+        Index("ix_incidents_status_severity_last_seen", "status", "severity", "last_seen_at"),
+        Index("ix_incidents_verification_status", "verification_status"),
+        Index("ix_incidents_last_seen_at", "last_seen_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

@@ -48,11 +48,30 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgrespassword@postgres:5432/aegis_db
       - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=change-this-to-a-secure-random-32-character-secret
       - AEGIS_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       - AEGIS_BLIND_PEPPER=local-dev-pepper-secret-key-32chars
+      - WEBHOOK_SECRET_DEFAULT=aegis-default-webhook-secret
       - SLACK_WEBHOOK_URL=
       - ENVIRONMENT=development
       - PORT=8000
+      - FRONTEND_URL=http://localhost:3000
+      - BACKEND_URL=http://localhost:8000
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: aegis-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=production
 
 volumes:
   postgres_data:

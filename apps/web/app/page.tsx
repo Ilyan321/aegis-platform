@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar, DashboardView } from "@/components/Navbar";
 import { TelemetryCards } from "@/components/TelemetryCards";
@@ -55,7 +55,7 @@ export default function DashboardPage() {
   const [isCommandOpen, setIsCommandOpen] = useState(false);
 
   // Load Dashboard Data scoped to active user
-  const loadDashboardData = async (orgId?: string | null) => {
+  const loadDashboardData = useCallback(async (orgId?: string | null) => {
     try {
       const targetOrg = orgId || undefined;
       const [tData, rData, iData, oData] = await Promise.all([
@@ -84,7 +84,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.full_name]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -94,7 +94,7 @@ export default function DashboardPage() {
         loadDashboardData(user.organization_id);
       }
     }
-  }, [authLoading, user, router]);
+  }, [authLoading, user, router, loadDashboardData]);
 
   const handleLoadSampleData = () => {
     setIsSimulated(true);
@@ -137,9 +137,9 @@ export default function DashboardPage() {
     );
 
     try {
-      await updateIncidentStatus(id, newStatus);
+      await updateIncidentStatus(id, newStatus, undefined, user?.email);
       // Soft refresh telemetry in background
-      fetchTelemetry().then((t) => t && setTelemetry(t)).catch(() => {});
+      fetchTelemetry(user?.organization_id || undefined).then((t) => t && setTelemetry(t)).catch(() => {});
       toast({
         type: newStatus === "RESOLVED" ? "success" : "info",
         title: newStatus === "RESOLVED" ? "Incident resolved" : "Incident dismissed",
@@ -148,7 +148,7 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("Failed to update status, reverting:", err);
       // Revert on error
-      loadDashboardData();
+      loadDashboardData(user?.organization_id);
       toast({
         type: "error",
         title: "Triage update failed",
@@ -331,6 +331,9 @@ export default function DashboardPage() {
                 setRepositories((prev) => prev.filter((r) => r.id !== id));
                 loadDashboardData(user?.organization_id);
               }}
+              onScanTriggered={() => {
+                loadDashboardData(user?.organization_id);
+              }}
               loading={loading}
             />
           </section>
@@ -388,6 +391,11 @@ export default function DashboardPage() {
         incidents={incidents}
         repositories={repositories}
         onSelectIncident={(inc) => setSelectedIncident(inc)}
+        onSelectRepository={(repo) => {
+          setCurrentView("incidents");
+          setCurrentTab("ALL");
+          setSearchQuery(repo.full_name);
+        }}
         onOpenOnboard={() => setIsOnboardOpen(true)}
         onSetTab={(tab) => {
           setCurrentView("incidents");
