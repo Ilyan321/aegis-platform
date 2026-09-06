@@ -373,7 +373,16 @@ export function IncidentDetailModal({
                     <div className="flex items-center space-x-1.5 font-mono text-xs text-heading">
                       <span>{incident.commit_sha.slice(0, 7)}</span>
                       {incident.committer_handle && (
-                        <span className="text-muted">(@{incident.committer_handle.split("@")[0]})</span>
+                        <a
+                          href={`https://github.com/${incident.committer_handle.replace("@", "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center space-x-1 font-mono"
+                          title={`View @${incident.committer_handle.replace("@", "")} on GitHub`}
+                        >
+                          <span>(@{incident.committer_handle.replace("@", "")})</span>
+                          <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                        </a>
                       )}
                     </div>
                   </div>

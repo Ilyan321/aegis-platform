@@ -105,7 +105,7 @@ async def create_repository(
                 "clone_url": repo.clone_url,
                 "branch": repo.default_branch,
                 "commit_sha": "HEAD",
-                "committer_handle": current_user.email,
+                "committer_handle": current_user.github_username or (current_user.email.split("@")[0] if current_user.email else "operator"),
                 "delivery_guid": f"onboard-{uuid.uuid4()}",
             },
         )
@@ -180,7 +180,7 @@ async def trigger_scan_all_repositories(
                     "clone_url": repo.clone_url,
                     "branch": repo.default_branch,
                     "commit_sha": "HEAD",
-                    "committer_handle": current_user.email,
+                    "committer_handle": current_user.github_username or (current_user.email.split("@")[0] if current_user.email else "operator"),
                     "delivery_guid": f"manual-all-{uuid.uuid4()}",
                 },
             )
@@ -250,7 +250,7 @@ async def trigger_repository_scan(
                 "clone_url": repo.clone_url,
                 "branch": repo.default_branch,
                 "commit_sha": "HEAD",
-                "committer_handle": current_user.email,
+                "committer_handle": current_user.github_username or (current_user.email.split("@")[0] if current_user.email else "operator"),
                 "delivery_guid": f"manual-{uuid.uuid4()}",
             },
         )

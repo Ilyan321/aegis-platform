@@ -39,6 +39,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     provider: str
     organization_id: Optional[UUID] = None
+    github_username: Optional[str] = None
     has_github_token: bool = False
     is_verified: bool = False
     created_at: datetime
@@ -107,6 +108,11 @@ class MessageResponse(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     full_name: Optional[str] = Field(None, max_length=100)
+    github_username: Optional[str] = Field(None, max_length=100)
+
+
+class VerifyGitHubHandleRequest(BaseModel):
+    github_username: str = Field(..., min_length=1, max_length=100)
 
 
 class ChangePasswordRequest(BaseModel):

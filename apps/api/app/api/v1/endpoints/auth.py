@@ -36,6 +36,7 @@ from app.schemas.auth import (
     UserRegisterRequest,
     UserResponse,
     VerifyEmailRequest,
+    VerifyGitHubHandleRequest,
 )
 from app.services.auth_tokens import EmailVerificationManager, PasswordResetTokenManager
 from app.services.email import EmailService
@@ -284,11 +285,82 @@ async def update_profile(
 ) -> Any:
     if data.full_name is not None:
         current_user.full_name = data.full_name.strip() if data.full_name.strip() else None
+    if data.github_username is not None:
+        clean_handle = data.github_username.strip().replace("@", "")
+        current_user.github_username = clean_handle if clean_handle else None
     await db.commit()
     await db.refresh(current_user)
     resp = UserResponse.model_validate(current_user)
     resp.has_github_token = bool(current_user.github_access_token)
-    logger.info(f"User {current_user.email} updated profile full_name='{current_user.full_name}'")
+    logger.info(f"User {current_user.email} updated profile full_name='{current_user.full_name}' github_username='{current_user.github_username}'")
+    return resp
+
+
+@router.post(
+    "/verify-github-handle",
+    response_model=UserResponse,
+    summary="Verify and link a public GitHub handle to user profile",
+)
+async def verify_github_handle(
+    data: VerifyGitHubHandleRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    clean_handle = data.github_username.strip().replace("@", "")
+    if not clean_handle:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="GitHub handle cannot be blank",
+        )
+
+    # Verify against GitHub Public API
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                f"https://api.github.com/users/{clean_handle}",
+                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "Aegis-Platform/1.0"},
+            )
+            if resp.status_code == 404:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"GitHub handle '@{clean_handle}' does not exist on GitHub.",
+                )
+            if resp.status_code == 200:
+                gh_data = resp.json()
+                clean_handle = gh_data.get("login", clean_handle)
+                if not current_user.avatar_url and gh_data.get("avatar_url"):
+                    current_user.avatar_url = gh_data.get("avatar_url")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(f"Could not reach GitHub API to verify handle: {exc}")
+
+    current_user.github_username = clean_handle
+    await db.commit()
+    await db.refresh(current_user)
+
+    resp = UserResponse.model_validate(current_user)
+    resp.has_github_token = bool(current_user.github_access_token)
+    logger.info(f"User {current_user.email} verified and linked GitHub handle '@{clean_handle}'")
+    return resp
+
+
+@router.post(
+    "/unlink-github",
+    response_model=UserResponse,
+    summary="Unlink GitHub connection and handle from user profile",
+)
+async def unlink_github(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    current_user.github_access_token = None
+    current_user.github_username = None
+    await db.commit()
+    await db.refresh(current_user)
+    resp = UserResponse.model_validate(current_user)
+    resp.has_github_token = False
+    logger.info(f"User {current_user.email} unlinked GitHub account")
     return resp
 
 
@@ -662,11 +734,13 @@ async def github_callback(
 
             email = email.lower().strip()
 
+        gh_login = gh_user.get("login")
+
         # 4. Strict Mode Checks
         stmt = select(User).where((User.email == email) | ((User.provider == "github") & (User.provider_id == gh_id)))
         user = (await db.execute(stmt)).scalars().first()
 
-        if actual_mode == "login":
+        if actual_mode == "login" or actual_mode == "link":
             if not user:
                 return RedirectResponse(
                     url=f"{frontend_url}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
@@ -674,6 +748,8 @@ async def github_callback(
             # Link or update provider profile info
             user.provider = "github"
             user.provider_id = gh_id
+            user.github_username = gh_login
+            user.is_verified = True
             user.set_github_token(gh_token)
             if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
@@ -699,6 +775,7 @@ async def github_callback(
                 avatar_url=avatar_url,
                 provider="github",
                 provider_id=gh_id,
+                github_username=gh_login,
                 organization_id=org.id,
                 is_active=True,
                 is_verified=True,

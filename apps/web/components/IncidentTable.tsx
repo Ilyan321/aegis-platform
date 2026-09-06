@@ -13,6 +13,7 @@ import {
   FileCode,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { Incident } from "@/lib/api";
 
@@ -340,7 +341,17 @@ export function IncidentTable({
                       <GitCommit className="w-3.5 h-3.5 text-muted" />
                       <span className="font-mono text-xs">{inc.commit_sha.slice(0, 7)}</span>
                       {inc.committer_handle && (
-                        <span className="text-[11px]">(@{inc.committer_handle})</span>
+                        <a
+                          href={`https://github.com/${inc.committer_handle.replace("@", "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] text-primary hover:underline inline-flex items-center space-x-0.5 font-mono"
+                          title={`View @${inc.committer_handle.replace("@", "")} on GitHub`}
+                        >
+                          <span>(@{inc.committer_handle.replace("@", "")})</span>
+                          <ExternalLink className="w-2.5 h-2.5 ml-0.5 opacity-70" />
+                        </a>
                       )}
                     </div>
                   </td>

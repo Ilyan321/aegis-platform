@@ -128,13 +128,15 @@ async def ingest_cli_scan(
         )
         existing = (await db.execute(inc_stmt)).scalar_one_or_none()
 
+        user_handle = current_user.github_username or (current_user.email.split("@")[0] if current_user.email else "operator")
+
         if existing:
             prev_status = existing.status
             existing.last_seen_at = now
             existing.verification_status = verif_status
             existing.verification_details = verif_details
             existing.commit_sha = scan_run.commit_sha
-            existing.committer_handle = current_user.email
+            existing.committer_handle = user_handle
             existing.scan_run_id = scan_run.id
 
             if prev_status in ("RESOLVED", "DISMISSED"):
@@ -164,7 +166,7 @@ async def ingest_cli_scan(
                 line_number=f.line_number,
                 masked_snippet=masked_val,
                 commit_sha=scan_run.commit_sha,
-                committer_handle=current_user.email,
+                committer_handle=user_handle,
                 secret_hash=secret_hash,
                 encrypted_secret_blob=encrypt_secret(masked_val),
                 fingerprint=fingerprint,

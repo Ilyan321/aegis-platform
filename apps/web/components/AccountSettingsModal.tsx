@@ -16,10 +16,31 @@ import {
   EyeOff,
   Building,
   Calendar,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { updateUserProfile, changePassword, revokeAllSessions } from "@/lib/api";
+import {
+  updateUserProfile,
+  changePassword,
+  revokeAllSessions,
+  verifyGitHubHandle,
+  unlinkGitHub,
+  getOAuthUrl,
+} from "@/lib/api";
+
+function GitHubIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+      />
+    </svg>
+  );
+}
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -34,7 +55,10 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
 
   // Profile State
   const [fullName, setFullName] = useState("");
+  const [githubUsername, setGithubUsername] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [verifyingGithub, setVerifyingGithub] = useState(false);
+  const [unlinkingGithub, setUnlinkingGithub] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   // Security State
@@ -56,6 +80,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
   useEffect(() => {
     if (isOpen && user) {
       setFullName(user.full_name || "");
+      setGithubUsername(user.github_username || "");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -108,12 +133,15 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
     setErrorMessage(null);
 
     try {
-      await updateUserProfile({ full_name: fullName.trim() || undefined });
+      await updateUserProfile({
+        full_name: fullName.trim() || null,
+        github_username: githubUsername.trim() || null,
+      });
       await refreshUser();
       toast({
         type: "success",
         title: "Profile Updated",
-        description: "Your display identity has been successfully refreshed.",
+        description: "Your display identity and developer handle have been refreshed.",
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update profile";
@@ -125,6 +153,61 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
       });
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleVerifyGithubHandle = async () => {
+    if (!githubUsername.trim()) {
+      setErrorMessage("Please enter a GitHub username handle to verify.");
+      return;
+    }
+    setVerifyingGithub(true);
+    setErrorMessage(null);
+    try {
+      const cleanHandle = githubUsername.trim().replace("@", "");
+      const updated = await verifyGitHubHandle(cleanHandle);
+      await refreshUser();
+      setGithubUsername(updated.github_username || cleanHandle);
+      toast({
+        type: "success",
+        title: "GitHub Identity Verified",
+        description: `Linked and verified @${updated.github_username || cleanHandle} with GitHub API.`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "GitHub verification failed";
+      setErrorMessage(msg);
+      toast({
+        type: "error",
+        title: "Verification Failed",
+        description: msg,
+      });
+    } finally {
+      setVerifyingGithub(false);
+    }
+  };
+
+  const handleUnlinkGithub = async () => {
+    setUnlinkingGithub(true);
+    setErrorMessage(null);
+    try {
+      await unlinkGitHub();
+      await refreshUser();
+      setGithubUsername("");
+      toast({
+        type: "info",
+        title: "GitHub Unlinked",
+        description: "GitHub connection has been cleared from your profile.",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to unlink GitHub";
+      setErrorMessage(msg);
+      toast({
+        type: "error",
+        title: "Unlink Failed",
+        description: msg,
+      });
+    } finally {
+      setUnlinkingGithub(false);
     }
   };
 
@@ -285,8 +368,13 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
               {/* Identity Banner */}
               <div className="flex items-center space-x-4 p-4 rounded-xl bg-canvas border border-subtle">
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-surface border border-subtle text-primary font-bold text-base flex items-center justify-center shadow-xs">
-                    {initials}
+                  <div className="w-12 h-12 rounded-full bg-surface border border-subtle text-primary font-bold text-base flex items-center justify-center shadow-xs overflow-hidden">
+                    {user.avatar_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={user.avatar_url} alt={user.full_name || user.email} className="w-full h-full object-cover" />
+                    ) : (
+                      initials
+                    )}
                   </div>
                   <span
                     className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-surface ${
@@ -303,6 +391,11 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface border border-subtle text-muted">
                       {user.provider}
                     </span>
+                    {user.is_verified && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        Verified
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted truncate">{user.email}</p>
                 </div>
@@ -320,14 +413,109 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. Satoshi Nakamoto"
-                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-interactive transition-colors"
+                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
                   />
                   <p className="text-[11px] text-muted">
                     This name is shown across security incident reports, scan logs, and workspace activities.
                   </p>
                 </div>
 
-                <div className="space-y-1.5">
+                {/* GitHub & VCS Handle Verification */}
+                <div className="space-y-2 pt-1">
+                  <label className="text-xs font-medium text-heading flex items-center justify-between">
+                    <span className="flex items-center space-x-1.5">
+                      <GitHubIcon className="w-3.5 h-3.5" />
+                      <span>GitHub Identity & Committer Handle</span>
+                    </span>
+                    {user.github_username ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 flex items-center space-x-1">
+                        <Check className="w-3 h-3" />
+                        <span>Verified Handle</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted">Unlinked</span>
+                    )}
+                  </label>
+
+                  {user.github_username ? (
+                    <div className="p-3 bg-canvas border border-subtle rounded-xl flex items-center justify-between">
+                      <div className="flex items-center space-x-2.5">
+                        <GitHubIcon className="w-4 h-4 text-heading" />
+                        <div>
+                          <a
+                            href={`https://github.com/${user.github_username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-xs font-semibold text-primary hover:underline flex items-center space-x-1"
+                          >
+                            <span>@{user.github_username}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <span className="text-[10px] text-muted block">
+                            Used for Git commit attribution and webhook scans
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={unlinkingGithub}
+                        onClick={handleUnlinkGithub}
+                        className="text-[11px] text-muted hover:text-rose-600 px-2.5 py-1 rounded-lg border border-subtle hover:border-rose-300 dark:hover:border-rose-800 bg-surface transition-colors cursor-pointer"
+                        title="Unlink GitHub handle"
+                      >
+                        {unlinkingGithub ? "Unlinking..." : "Unlink"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex space-x-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted text-xs font-mono">
+                            @
+                          </span>
+                          <input
+                            type="text"
+                            value={githubUsername}
+                            onChange={(e) => setGithubUsername(e.target.value)}
+                            placeholder="Your GitHub username (e.g. Ilyan321)"
+                            className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-7 pr-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors font-mono"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={verifyingGithub || !githubUsername.trim()}
+                          onClick={handleVerifyGithubHandle}
+                          className="text-xs font-medium bg-surface hover:bg-subtle border border-subtle text-heading px-3.5 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 shrink-0 flex items-center space-x-1.5"
+                        >
+                          {verifyingGithub ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Verifying...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5 text-primary" />
+                              <span>Verify Handle</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-muted px-1">
+                        <span>Or connect with GitHub OAuth:</span>
+                        <a
+                          href={getOAuthUrl("github", "login")}
+                          className="text-primary hover:underline font-medium inline-flex items-center space-x-1"
+                        >
+                          <GitHubIcon className="w-3 h-3" />
+                          <span>Link via OAuth</span>
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5 pt-1">
                   <label className="text-xs font-medium text-heading flex items-center justify-between">
                     <span>Email Address</span>
                     <span
@@ -352,7 +540,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   <button
                     type="submit"
                     disabled={savingProfile}
-                    className="flex items-center space-x-2 text-xs font-medium bg-primary hover:bg-heading text-white px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex items-center space-x-2 text-xs font-medium bg-primary hover:bg-heading text-surface px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {savingProfile ? (
                       <>
@@ -434,12 +622,12 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="••••••••••••"
-                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-interactive transition-colors"
+                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
                       />
                       <button
                         type="button"
                         onClick={() => setShowCurrentPass(!showCurrentPass)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-heading"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-heading cursor-pointer"
                         aria-label={showCurrentPass ? "Hide password" : "Show password"}
                       >
                         {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -460,12 +648,12 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="At least 8 characters"
-                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-interactive transition-colors"
+                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
                       />
                       <button
                         type="button"
                         onClick={() => setShowNewPass(!showNewPass)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-heading"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-heading cursor-pointer"
                         aria-label={showNewPass ? "Hide password" : "Show password"}
                       >
                         {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -499,10 +687,10 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                             {hasMixedCase ? "✓" : "•"} Upper & lower case
                           </span>
                           <span className={hasNumber ? "text-emerald-600 dark:text-emerald-400" : ""}>
-                            {hasNumber ? "✓" : "•"} Includes number
+                            {hasNumber ? "✓" : "•"} Numbers included
                           </span>
                           <span className={hasSpecial ? "text-emerald-600 dark:text-emerald-400" : ""}>
-                            {hasSpecial ? "✓" : "•"} Special character
+                            {hasSpecial ? "✓" : "•"} Symbols included
                           </span>
                         </div>
                       </div>
@@ -521,18 +709,15 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat new password"
-                      className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-interactive transition-colors"
+                      className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
                     />
-                    {confirmPassword && newPassword !== confirmPassword && (
-                      <p className="text-[11px] text-rose-600">Passwords do not match</p>
-                    )}
                   </div>
 
                   <div className="pt-2 flex justify-end">
                     <button
                       type="submit"
-                      disabled={changingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
-                      className="flex items-center space-x-2 text-xs font-medium bg-primary hover:bg-heading text-white px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                      disabled={changingPassword || !currentPassword || !newPassword}
+                      className="flex items-center space-x-2 text-xs font-medium bg-primary hover:bg-heading text-surface px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {changingPassword ? (
                         <>
@@ -549,76 +734,72 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   </div>
                 </form>
               ) : (
-                <div className="p-4 rounded-xl bg-canvas border border-subtle text-xs space-y-1.5">
-                  <h4 className="font-semibold text-heading">OAuth Single Sign-On</h4>
-                  <p className="text-muted">
-                    Your account is authenticated via GitHub OAuth. Master password updates are managed directly within your GitHub security settings.
+                <div className="p-4 rounded-xl bg-canvas border border-subtle space-y-2 text-xs">
+                  <div className="flex items-center space-x-2 text-heading font-medium">
+                    <Shield className="w-4 h-4 text-primary" />
+                    <span>Single Sign-On Managed Account</span>
+                  </div>
+                  <p className="text-muted leading-relaxed">
+                    This account authenticated via{" "}
+                    <strong className="text-heading capitalize">{user.provider}</strong>. Password
+                    updates are managed directly through your identity provider.
                   </p>
                 </div>
               )}
 
-              {/* Global Session Revocation Kill-Switch */}
+              {/* Global Session Revocation */}
               <div className="border-t border-subtle pt-5 space-y-3">
                 <div>
-                  <h4 className="text-xs font-semibold text-heading flex items-center space-x-2">
-                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    <span>Session Security & Kill-Switch</span>
+                  <h4 className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center space-x-1.5">
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Session Termination Kill-Switch</span>
                   </h4>
                   <p className="text-[11px] text-muted mt-0.5">
-                    Terminate all active sessions, refresh tokens, and authorized browsers immediately across all devices.
+                    Revoke all active access tokens and refresh tokens across all browsers and devices.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 space-y-3">
-                  <div className="text-xs text-rose-800 dark:text-rose-200 leading-relaxed">
-                    If you suspect unauthorized activity or misplaced an active device, this action revokes all cryptographic tokens issued to your account. You will need to log in again on all devices.
-                  </div>
-
-                  {confirmRevoke ? (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">
-                        Are you sure? You will be signed out everywhere immediately.
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={handleRevokeAllSessions}
-                          disabled={revokingSessions}
-                          className="flex items-center space-x-1.5 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          {revokingSessions ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>Revoking...</span>
-                            </>
-                          ) : (
-                            <>
-                              <LogOut className="w-3.5 h-3.5" />
-                              <span>Confirm & Revoke All</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmRevoke(false)}
-                          disabled={revokingSessions}
-                          className="text-xs text-muted hover:text-heading px-3 py-1.5 rounded-lg bg-surface border border-subtle transition-colors cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                {!confirmRevoke ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRevoke(true)}
+                    className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-2"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Revoke All Active Sessions</span>
+                  </button>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 space-y-3 animate-in fade-in duration-150">
+                    <p className="text-xs text-rose-700 dark:text-rose-300 font-medium">
+                      Are you sure? You will be immediately logged out on all devices.
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        disabled={revokingSessions}
+                        onClick={handleRevokeAllSessions}
+                        className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 shadow-xs"
+                      >
+                        {revokingSessions ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Revoking...</span>
+                          </>
+                        ) : (
+                          <span>Yes, Revoke Everything</span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={revokingSessions}
+                        onClick={() => setConfirmRevoke(false)}
+                        className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmRevoke(true)}
-                      className="flex items-center space-x-2 text-xs font-medium text-rose-700 dark:text-rose-300 bg-surface hover:bg-rose-100/50 dark:hover:bg-rose-900/40 border border-rose-300 dark:border-rose-800/80 px-3.5 py-2 rounded-xl transition-colors cursor-pointer shadow-xs"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Revoke All Sessions & Sign Out Everywhere</span>
-                    </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

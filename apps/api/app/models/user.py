@@ -20,6 +20,7 @@ class User(Base):
     avatar_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     provider: Mapped[str] = mapped_column(String(50), default="local", server_default="local", nullable=False)  # local, github, google
     provider_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    github_username: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     github_access_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     organization_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True

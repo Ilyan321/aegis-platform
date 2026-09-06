@@ -251,6 +251,7 @@ export interface User {
   avatar_url?: string | null;
   provider: string;
   organization_id?: string | null;
+  github_username?: string | null;
   has_github_token?: boolean;
   is_verified?: boolean;
   created_at: string;
@@ -445,10 +446,23 @@ export async function resetPassword(token: string, newPassword: string): Promise
   return res.json();
 }
 
-export async function updateUserProfile(data: { full_name?: string }): Promise<User> {
+export async function updateUserProfile(data: { full_name?: string | null; github_username?: string | null }): Promise<User> {
   return apiFetch<User>("/api/v1/auth/profile", {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+}
+
+export async function verifyGitHubHandle(githubUsername: string): Promise<User> {
+  return apiFetch<User>("/api/v1/auth/verify-github-handle", {
+    method: "POST",
+    body: JSON.stringify({ github_username: githubUsername }),
+  });
+}
+
+export async function unlinkGitHub(): Promise<User> {
+  return apiFetch<User>("/api/v1/auth/unlink-github", {
+    method: "POST",
   });
 }
 
