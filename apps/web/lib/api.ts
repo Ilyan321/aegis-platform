@@ -14,6 +14,7 @@ export interface Incident {
   commit_sha: string;
   committer_handle?: string | null;
   fingerprint: string;
+  secret_hash?: string;
   first_seen_at: string;
   last_seen_at: string;
   resolved_at?: string | null;
