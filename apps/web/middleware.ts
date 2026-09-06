@@ -16,6 +16,13 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
 
+  // Rewrite aegis.ilyankhan.tech to serve the install script directly on curl
+  if (host.includes("aegis.ilyankhan.tech") && (pathname === "/" || pathname === "/install.sh")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/install.sh";
+    return NextResponse.rewrite(url);
+  }
+
   // Enforce Canonical Domain: redirect any non-local vercel.app traffic to aegis-platform.ilyankhan.tech
   if (host.includes("vercel.app") && !host.includes("localhost")) {
     const canonicalUrl = new URL(
