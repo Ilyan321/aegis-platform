@@ -579,24 +579,22 @@ async def reset_password(
 
 
 def get_effective_backend_url(request: Request) -> str:
-    """Intelligently resolves the public backend base URL.
-    
-    1. If BACKEND_URL setting is explicitly configured to a custom host (not localhost), honor it.
-    2. Otherwise, dynamically extract public origin from reverse proxy headers
-       (X-Forwarded-Proto, X-Forwarded-Host, Host).
-    3. Fallback to settings.BACKEND_URL.
-    """
+    """Dynamically resolves the public backend origin for OAuth callback construction."""
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    if host:
+        if "aegis-api.ilyankhan.tech" in host:
+            return "https://aegis-api.ilyankhan.tech"
+        if "render.com" in host:
+            return f"https://{host}".rstrip("/")
+        return f"{proto}://{host}".rstrip("/")
+
     if (
         settings.BACKEND_URL
         and not settings.BACKEND_URL.startswith("http://localhost")
         and not settings.BACKEND_URL.startswith("http://127.0.0.1")
     ):
         return settings.BACKEND_URL.rstrip("/")
-
-    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
-    if host:
-        return f"{proto}://{host}".rstrip("/")
 
     return settings.BACKEND_URL.rstrip("/")
 
@@ -606,24 +604,27 @@ def get_effective_frontend_url(request: Request, custom_destination: Optional[st
     if custom_destination and (custom_destination.startswith("http://") or custom_destination.startswith("https://")):
         return custom_destination.rstrip("/")
 
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    if "aegis-api.ilyankhan.tech" in host:
+        return "https://aegis-platform.ilyankhan.tech"
+
+    referer = request.headers.get("referer", "")
+    if "ilyankhan.tech" in referer:
+        return "https://aegis-platform.ilyankhan.tech"
+    if "vercel.app" in referer:
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+    if "render.com" in host:
+        return "https://aegis-platform-web.vercel.app"
+
     if (
         settings.FRONTEND_URL
         and not settings.FRONTEND_URL.startswith("http://localhost")
         and not settings.FRONTEND_URL.startswith("http://127.0.0.1")
     ):
         return settings.FRONTEND_URL.rstrip("/")
-
-    referer = request.headers.get("referer", "")
-    if "vercel.app" in referer or "ilyankhan.tech" in referer:
-        from urllib.parse import urlparse
-        parsed = urlparse(referer)
-        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
-
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    if "aegis-api.ilyankhan.tech" in host:
-        return "https://aegis-platform.ilyankhan.tech"
-    if "render.com" in host:
-        return "https://aegis-platform-web.vercel.app"
 
     return settings.FRONTEND_URL.rstrip("/")
 
