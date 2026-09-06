@@ -53,12 +53,13 @@ def base64url_decode(data: str) -> bytes:
 
 
 def create_access_token(user_id: str, email: str, expires_delta: Optional[timedelta] = None) -> str:
-    """Creates an RFC 7519 standard HMAC-SHA256 signed JWT access token."""
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=7))
+    """Creates an RFC 7519 standard HMAC-SHA256 signed JWT access token (default 15m)."""
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "sub": str(user_id),
         "email": email,
+        "type": "access",
         "exp": int(expire.timestamp()),
         "iat": int(datetime.now(timezone.utc).timestamp()),
     }
@@ -74,8 +75,62 @@ def create_access_token(user_id: str, email: str, expires_delta: Optional[timede
     return f"{header_b64}.{payload_b64}.{signature_b64}"
 
 
+def create_refresh_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
+    """Creates an RFC 7519 HMAC-SHA256 signed refresh token (default 7 days) with unique jti."""
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=7))
+    header = {"alg": "HS256", "typ": "JWT"}
+    jti = secrets.token_hex(16)
+    payload = {
+        "sub": str(user_id),
+        "type": "refresh",
+        "jti": jti,
+        "exp": int(expire.timestamp()),
+        "iat": int(datetime.now(timezone.utc).timestamp()),
+    }
+
+    header_b64 = base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    payload_b64 = base64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+
+    secret_key = settings.SECRET_KEY.encode("utf-8")
+    signature = hmac.new(secret_key, signing_input, hashlib.sha256).digest()
+    signature_b64 = base64url_encode(signature)
+
+    return f"{header_b64}.{payload_b64}.{signature_b64}"
+
+
+class SessionTokenManager:
+    """Manages refresh token invalidation, reuse detection, and session revocation."""
+    _revoked_jtis: set = set()
+
+    @classmethod
+    async def is_revoked(cls, jti: str) -> bool:
+        if settings.REDIS_URL:
+            try:
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                val = await r.get(f"revoked_token:{jti}")
+                await r.aclose()
+                return val is not None
+            except Exception:
+                pass
+        return jti in cls._revoked_jtis
+
+    @classmethod
+    async def revoke_token(cls, jti: str, ttl_seconds: int = 604800) -> None:
+        cls._revoked_jtis.add(jti)
+        if settings.REDIS_URL:
+            try:
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                await r.set(f"revoked_token:{jti}", "1", ex=ttl_seconds)
+                await r.aclose()
+            except Exception:
+                pass
+
+
 def decode_access_token(token: str) -> Dict[str, Any]:
-    """Decodes and validates an RFC 7519 HMAC-SHA256 JWT access token."""
+    """Decodes and validates an RFC 7519 HMAC-SHA256 JWT token."""
     parts = token.split(".")
     if len(parts) != 3:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed authorization token")

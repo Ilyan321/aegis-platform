@@ -86,3 +86,123 @@ class RateLimiter:
 
         valid_timestamps.append(now)
         self._memory_store[key] = valid_timestamps
+
+
+class AccountLockoutManager:
+    """
+    Tracks consecutive failed authentication attempts and enforces temporary account lockouts
+    to eliminate automated credential-stuffing and distributed brute-force attacks.
+    """
+    _memory_failed_attempts: Dict[str, List[float]] = {}
+    _memory_lockouts: Dict[str, float] = {}
+
+    @classmethod
+    def _email_key(cls, email: str) -> str:
+        import hashlib
+        return hashlib.sha256(email.lower().strip().encode("utf-8")).hexdigest()[:16]
+
+    @classmethod
+    async def check_lockout(cls, email: str) -> None:
+        key = cls._email_key(email)
+        now = time.time()
+
+        # Redis check
+        if settings.REDIS_URL and now >= RateLimiter._redis_backoff_until:
+            r = None
+            try:
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                ttl = await r.ttl(f"lockout:{key}")
+                if ttl > 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="Account is temporarily locked due to multiple consecutive failed login attempts. Please try again in 15 minutes.",
+                        headers={"Retry-After": str(ttl)},
+                    )
+                return
+            except HTTPException:
+                raise
+            except Exception:
+                pass
+            finally:
+                if r:
+                    await r.aclose()
+
+        # In-memory check
+        lockout_until = cls._memory_lockouts.get(key, 0.0)
+        if now < lockout_until:
+            remaining = int(lockout_until - now)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Account is temporarily locked due to multiple consecutive failed login attempts. Please try again in 15 minutes.",
+                headers={"Retry-After": str(max(1, remaining))},
+            )
+
+    @classmethod
+    async def record_failure(cls, email: str) -> None:
+        key = cls._email_key(email)
+        now = time.time()
+        max_failures = 5
+        lockout_duration = 900  # 15 minutes
+        window = 600  # 10 minutes
+
+        # Try Redis first
+        if settings.REDIS_URL and now >= RateLimiter._redis_backoff_until:
+            r = None
+            try:
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                fail_key = f"failed_login:{key}"
+                pipe = r.pipeline()
+                pipe.incr(fail_key)
+                pipe.expire(fail_key, window, nx=True)
+                res = await pipe.execute()
+                count = res[0]
+                if count >= max_failures:
+                    await r.set(f"lockout:{key}", "1", ex=lockout_duration)
+                    await r.delete(fail_key)
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="Too many failed login attempts. Account temporarily locked for 15 minutes for your protection.",
+                        headers={"Retry-After": str(lockout_duration)},
+                    )
+                return
+            except HTTPException:
+                raise
+            except Exception:
+                pass
+            finally:
+                if r:
+                    await r.aclose()
+
+        # In-memory fallback
+        failures = cls._memory_failed_attempts.get(key, [])
+        failures = [t for t in failures if t > (now - window)]
+        failures.append(now)
+        cls._memory_failed_attempts[key] = failures
+
+        if len(failures) >= max_failures:
+            cls._memory_lockouts[key] = now + lockout_duration
+            cls._memory_failed_attempts[key] = []
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed login attempts. Account temporarily locked for 15 minutes for your protection.",
+                headers={"Retry-After": str(lockout_duration)},
+            )
+
+    @classmethod
+    async def record_success(cls, email: str) -> None:
+        key = cls._email_key(email)
+        # Redis
+        if settings.REDIS_URL and time.time() >= RateLimiter._redis_backoff_until:
+            r = None
+            try:
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                await r.delete(f"failed_login:{key}", f"lockout:{key}")
+            except Exception:
+                pass
+            finally:
+                if r:
+                    await r.aclose()
+
+        # In-memory
+        cls._memory_failed_attempts.pop(key, None)
+        cls._memory_lockouts.pop(key, None)

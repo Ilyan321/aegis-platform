@@ -9,17 +9,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.rate_limiter import RateLimiter
+from app.core.rate_limiter import AccountLockoutManager, RateLimiter
 from app.core.security import (
     create_access_token,
+    create_refresh_token,
+    decode_access_token,
     get_current_user,
     get_optional_current_user,
     hash_password,
     verify_password,
+    SessionTokenManager,
 )
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.auth import (
+    TokenRefreshRequest,
     TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
@@ -28,13 +32,16 @@ from app.schemas.auth import (
 
 router = APIRouter()
 logger = logging.getLogger("aegis.auth")
-login_limiter = RateLimiter(times=10, seconds=60)
+login_limiter = RateLimiter(times=5, seconds=60)
+register_limiter = RateLimiter(times=5, seconds=900)
+DUMMY_PBKDF2_HASH = "pbkdf2:sha256:100000$00112233445566778899aabbccddeeff$00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
 
 
 @router.post(
     "/register",
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(register_limiter)],
     summary="Register new user account",
 )
 async def register(
@@ -71,12 +78,14 @@ async def register(
     await db.commit()
     await db.refresh(user)
 
-    # 4. Generate JWT
+    # 4. Generate JWT Pair
     token = create_access_token(user_id=str(user.id), email=user.email)
+    refresh_token = create_refresh_token(user_id=str(user.id))
 
     logger.info(f"Registered new user account: {user.email} (ID: {user.id})")
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
         token_type="bearer",
         user=UserResponse.model_validate(user),
     )
@@ -92,14 +101,20 @@ async def login(
     data: UserLoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
+    # 0. Check if account is locked out from previous consecutive failures
+    await AccountLockoutManager.check_lockout(data.email)
+
     # 1. Lookup user by email
     stmt = select(User).where(User.email == data.email.lower().strip())
     user = (await db.execute(stmt)).scalars().first()
 
     if not user:
+        # Constant-time mitigation against email enumeration attacks
+        verify_password("timing_defense_attempt", DUMMY_PBKDF2_HASH)
+        await AccountLockoutManager.record_failure(data.email)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No account found with this email. Please sign up first.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password or email. Please try again.",
         )
 
     if not user.hashed_password:
@@ -108,11 +123,12 @@ async def login(
             detail=f"This account was registered using {user.provider.capitalize()}. Please sign in with {user.provider.capitalize()}.",
         )
 
-    # 2. Verify password hash
+    # 2. Verify password hash in constant time
     if not verify_password(data.password, user.hashed_password):
+        await AccountLockoutManager.record_failure(data.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password. Please try again.",
+            detail="Incorrect password or email. Please try again.",
         )
 
     if not user.is_active:
@@ -121,15 +137,103 @@ async def login(
             detail="Account has been suspended or deactivated",
         )
 
-    # 3. Generate JWT
+    # 3. Successful authentication - clear failed attempts
+    await AccountLockoutManager.record_success(data.email)
+
+    # 4. Generate JWT Pair
     token = create_access_token(user_id=str(user.id), email=user.email)
+    refresh_token = create_refresh_token(user_id=str(user.id))
 
     logger.info(f"User authenticated successfully: {user.email}")
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
         token_type="bearer",
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Refresh access token using valid refresh token (Refresh Token Rotation)",
+)
+async def refresh_token(
+    data: TokenRefreshRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    import time
+    from uuid import UUID
+
+    payload = decode_access_token(data.refresh_token)
+    token_type = payload.get("type")
+    if token_type != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token type. Expected refresh token.",
+        )
+
+    jti = payload.get("jti")
+    user_id_str = payload.get("sub")
+    if not jti or not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Malformed refresh token payload.",
+        )
+
+    # Reuse Detection: If an already-revoked refresh token is presented, abort immediately
+    if await SessionTokenManager.is_revoked(jti):
+        logger.warning(f"Refresh token reuse detected for subject {user_id_str}! Potential token theft.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked or already used. Please sign in again.",
+        )
+
+    # Invalidate old refresh token (Rotation)
+    exp = payload.get("exp", int(time.time() + 604800))
+    ttl = max(60, int(exp - time.time()))
+    await SessionTokenManager.revoke_token(jti, ttl_seconds=ttl)
+
+    # Lookup user
+    try:
+        user_uuid = UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject UUID")
+
+    user = await db.get(User, user_uuid)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found or deactivated")
+
+    # Issue rotated token pair
+    new_access_token = create_access_token(user_id=str(user.id), email=user.email)
+    new_refresh_token = create_refresh_token(user_id=str(user.id))
+
+    return TokenResponse(
+        access_token=new_access_token,
+        refresh_token=new_refresh_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    summary="Log out user and invalidate active session tokens",
+)
+async def logout(
+    data: Optional[TokenRefreshRequest] = None,
+    current_user: User = Depends(get_current_user),
+):
+    if data and data.refresh_token:
+        try:
+            payload = decode_access_token(data.refresh_token)
+            jti = payload.get("jti")
+            if jti:
+                await SessionTokenManager.revoke_token(jti)
+        except Exception:
+            pass
+    return {"message": "Session terminated successfully"}
 
 
 @router.get(

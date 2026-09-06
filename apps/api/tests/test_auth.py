@@ -77,3 +77,66 @@ async def test_me_authenticated_and_unauthorized(async_client: AsyncClient, test
     me_data = auth_resp.json()
     assert me_data["email"] == test_user_data["user"].email
     assert me_data["full_name"] == test_user_data["user"].full_name
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_rotation_and_reuse_detection(async_client: AsyncClient):
+    """Verify refresh endpoint rotates tokens and detects replay/reuse attempts."""
+    # Register user
+    reg_resp = await async_client.post(
+        "/api/v1/auth/register",
+        json={"email": "rtr_test@enterprise.org", "password": "Password123!", "full_name": "RTR User"},
+    )
+    assert reg_resp.status_code == 201
+    refresh_token = reg_resp.json()["refresh_token"]
+    assert refresh_token is not None
+
+    # First Refresh: succeeds and rotates token
+    refresh_resp = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert refresh_resp.status_code == 200
+    data = refresh_resp.json()
+    assert "access_token" in data
+    assert "refresh_token" in data
+    rotated_refresh_token = data["refresh_token"]
+    assert rotated_refresh_token != refresh_token
+
+    # Replay Attempt: Using the old refresh token MUST be rejected
+    replay_resp = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert replay_resp.status_code == 401
+    assert "revoked or already used" in replay_resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_logout_invalidates_session(async_client: AsyncClient):
+    """Verify logout endpoint invalidates refresh tokens."""
+    # Register user with distinct IP to test in isolation
+    reg_resp = await async_client.post(
+        "/api/v1/auth/register",
+        json={"email": "logout_test@enterprise.org", "password": "Password123!", "full_name": "Logout User"},
+        headers={"X-Forwarded-For": "192.168.1.100"},
+    )
+    assert reg_resp.status_code == 201
+    data = reg_resp.json()
+    access_token = data["access_token"]
+    refresh_token = data["refresh_token"]
+
+    # Logout
+    logout_resp = await async_client.post(
+        "/api/v1/auth/logout",
+        json={"refresh_token": refresh_token},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert logout_resp.status_code == 200
+
+    # Refresh after logout should fail
+    refresh_resp = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert refresh_resp.status_code == 401

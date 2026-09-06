@@ -81,7 +81,7 @@ export function getOAuthUrl(provider: "github" | "google", mode: "login" | "sign
 
 export async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { _isRetry?: boolean } = {}
 ): Promise<T> {
   const token = getStoredToken();
   const headers = new Headers(options.headers || {});
@@ -99,8 +99,15 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (res.status === 401 && !options._isRetry && typeof window !== "undefined") {
+      const success = await refreshSession();
+      if (success) {
+        return apiFetch<T>(endpoint, { ...options, _isRetry: true });
+      }
       removeStoredToken();
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login?reason=session_expired";
+      }
     }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `Request failed with status ${res.status}`);
@@ -240,26 +247,86 @@ export interface User {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
   user: User;
 }
 
 const TOKEN_KEY = "aegis_auth_token";
+const REFRESH_KEY = "aegis_refresh_token";
 
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setStoredToken(token: string): void {
+export function getStoredRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function setStoredToken(token: string, refreshToken?: string): void {
   if (typeof window !== "undefined") {
     localStorage.setItem(TOKEN_KEY, token);
+    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax;`;
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_KEY, refreshToken);
+    }
   }
 }
 
 export function removeStoredToken(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax;`;
+  }
+}
+
+export async function refreshSession(): Promise<boolean> {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) {
+      removeStoredToken();
+      return false;
+    }
+
+    const data: AuthResponse = await res.json();
+    setStoredToken(data.access_token, data.refresh_token);
+    return true;
+  } catch {
+    removeStoredToken();
+    return false;
+  }
+}
+
+export async function logoutUser(): Promise<void> {
+  const refreshToken = getStoredRefreshToken();
+  const token = getStoredToken();
+  try {
+    if (refreshToken || token) {
+      await fetch(`${API_BASE}/api/v1/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ refresh_token: refreshToken || "" }),
+      });
+    }
+  } finally {
+    removeStoredToken();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
   }
 }
 
@@ -274,7 +341,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
     throw new Error(err.detail || "Authentication failed");
   }
   const data: AuthResponse = await res.json();
-  setStoredToken(data.access_token);
+  setStoredToken(data.access_token, data.refresh_token);
   return data;
 }
 
@@ -289,7 +356,7 @@ export async function registerUser(email: string, password: string, fullName?: s
     throw new Error(err.detail || "Registration failed");
   }
   const data: AuthResponse = await res.json();
-  setStoredToken(data.access_token);
+  setStoredToken(data.access_token, data.refresh_token);
   return data;
 }
 
