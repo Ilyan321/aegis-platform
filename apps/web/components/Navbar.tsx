@@ -257,7 +257,7 @@ export function Navbar({
                         className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
                       >
                         <Terminal className="w-3.5 h-3.5 text-primary" />
-                        <span>CLI Authentication</span>
+                        <span>Aegis CLI</span>
                       </button>
                     )}
 

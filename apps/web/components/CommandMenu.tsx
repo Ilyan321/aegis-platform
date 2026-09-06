@@ -193,7 +193,7 @@ export function CommandMenu({
                   className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
                 >
                   <Terminal className="w-4 h-4 text-primary" />
-                  <span>View CLI Authentication Token...</span>
+                  <span>Aegis CLI (Download & Setup)...</span>
                 </Command.Item>
               )}
               {onRefresh && (
