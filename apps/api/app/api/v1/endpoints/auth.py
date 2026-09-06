@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any, Optional
 import uuid
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -506,41 +506,110 @@ async def reset_password(
     )
 
 
+def get_effective_backend_url(request: Request) -> str:
+    """Intelligently resolves the public backend base URL.
+    
+    1. If BACKEND_URL setting is explicitly configured to a custom host (not localhost), honor it.
+    2. Otherwise, dynamically extract public origin from reverse proxy headers
+       (X-Forwarded-Proto, X-Forwarded-Host, Host).
+    3. Fallback to settings.BACKEND_URL.
+    """
+    if (
+        settings.BACKEND_URL
+        and not settings.BACKEND_URL.startswith("http://localhost")
+        and not settings.BACKEND_URL.startswith("http://127.0.0.1")
+    ):
+        return settings.BACKEND_URL.rstrip("/")
+
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    if host:
+        return f"{proto}://{host}".rstrip("/")
+
+    return settings.BACKEND_URL.rstrip("/")
+
+
+def get_effective_frontend_url(request: Request, custom_destination: Optional[str] = None) -> str:
+    """Intelligently resolves the frontend destination URL for OAuth redirection."""
+    if custom_destination and (custom_destination.startswith("http://") or custom_destination.startswith("https://")):
+        return custom_destination.rstrip("/")
+
+    if (
+        settings.FRONTEND_URL
+        and not settings.FRONTEND_URL.startswith("http://localhost")
+        and not settings.FRONTEND_URL.startswith("http://127.0.0.1")
+    ):
+        return settings.FRONTEND_URL.rstrip("/")
+
+    referer = request.headers.get("referer", "")
+    if "vercel.app" in referer:
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    if "render.com" in host:
+        return "https://aegis-platform-web.vercel.app"
+
+    return settings.FRONTEND_URL.rstrip("/")
+
+
 # ==========================================
 # GitHub OAuth Flow (Strict Mode-Aware)
 # ==========================================
 
 @router.get("/github", summary="Initiate GitHub OAuth authentication")
-async def github_login(mode: str = "login"):
+async def github_login(
+    request: Request,
+    mode: str = "login",
+    redirect_to: Optional[str] = None,
+):
     """Redirects the client to GitHub's OAuth authorization gateway with mode (login/signup)."""
     target_page = "login" if mode == "login" else "signup"
+    frontend_url = get_effective_frontend_url(request, redirect_to)
+
     if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
         error_msg = "GitHub OAuth is not configured yet. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in Render."
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error={error_msg}")
+        return RedirectResponse(url=f"{frontend_url}/{target_page}?error={error_msg}")
 
-    redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/github/callback"
+    backend_url = get_effective_backend_url(request)
+    redirect_uri = f"{backend_url}/api/v1/auth/github/callback"
+    state_param = f"{mode}:{redirect_to}" if redirect_to else mode
+
     github_auth_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={settings.GITHUB_CLIENT_ID}"
         f"&redirect_uri={redirect_uri}"
         f"&scope=read:user%20user:email%20repo"
-        f"&state={mode}"
+        f"&state={state_param}"
     )
     return RedirectResponse(url=github_auth_url)
 
 
 @router.get("/github/callback", summary="GitHub OAuth authorization callback")
 async def github_callback(
+    request: Request,
     code: Optional[str] = None,
     error: Optional[str] = None,
     state: Optional[str] = "login",
     db: AsyncSession = Depends(get_db),
 ):
     """Exchanges GitHub OAuth code. In login mode verifies existence; in signup mode creates user."""
-    target_page = "login" if state == "login" else "signup"
+    actual_mode = "login"
+    custom_dest = None
+    if state and ":" in state:
+        actual_mode, custom_dest = state.split(":", 1)
+    elif state:
+        actual_mode = state
+
+    target_page = "login" if actual_mode == "login" else "signup"
+    frontend_url = get_effective_frontend_url(request, custom_dest)
+    backend_url = get_effective_backend_url(request)
+    redirect_uri = f"{backend_url}/api/v1/auth/github/callback"
+
     if error or not code:
         err = error or "Authorization code missing"
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=GitHub+authorization+failed:+{err}")
+        return RedirectResponse(url=f"{frontend_url}/{target_page}?error=GitHub+authorization+failed:+{err}")
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -552,7 +621,7 @@ async def github_callback(
                     "client_id": settings.GITHUB_CLIENT_ID,
                     "client_secret": settings.GITHUB_CLIENT_SECRET,
                     "code": code,
-                    "redirect_uri": f"{settings.BACKEND_URL}/api/v1/auth/github/callback",
+                    "redirect_uri": redirect_uri,
                 },
             )
             token_data = token_resp.json()
@@ -560,7 +629,7 @@ async def github_callback(
 
             if not gh_token:
                 logger.error(f"GitHub token exchange failed: {token_data}")
-                return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Failed+to+obtain+GitHub+access+token")
+                return RedirectResponse(url=f"{frontend_url}/{target_page}?error=Failed+to+obtain+GitHub+access+token")
 
             # 2. Fetch GitHub User profile
             user_resp = await client.get(
@@ -597,10 +666,10 @@ async def github_callback(
         stmt = select(User).where((User.email == email) | ((User.provider == "github") & (User.provider_id == gh_id)))
         user = (await db.execute(stmt)).scalars().first()
 
-        if state == "login":
+        if actual_mode == "login":
             if not user:
                 return RedirectResponse(
-                    url=f"{settings.FRONTEND_URL}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
+                    url=f"{frontend_url}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
                 )
             # Link or update provider profile info
             user.provider = "github"
@@ -614,7 +683,7 @@ async def github_callback(
             # state == "signup"
             if user:
                 return RedirectResponse(
-                    url=f"{settings.FRONTEND_URL}/login?error=An+account+with+email+{email}+already+exists.+Please+sign+in."
+                    url=f"{frontend_url}/login?error=An+account+with+email+{email}+already+exists.+Please+sign+in."
                 )
 
             user_handle = email.split("@")[0]
@@ -643,11 +712,11 @@ async def github_callback(
         # 5. Issue Aegis JWT Pair and redirect to frontend
         token = create_access_token(user_id=str(user.id), email=user.email)
         refresh_token = create_refresh_token(user_id=str(user.id))
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={token}&refresh_token={refresh_token}")
+        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={token}&refresh_token={refresh_token}")
 
     except Exception as e:
         logger.exception("GitHub OAuth exchange error")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=GitHub+authentication+error")
+        return RedirectResponse(url=f"{frontend_url}/{target_page}?error=GitHub+authentication+error")
 
 
 @router.get("/github/repos", summary="Fetch real GitHub repositories for user")
@@ -707,14 +776,23 @@ async def get_github_repos(
 # ==========================================
 
 @router.get("/google", summary="Initiate Google OAuth authentication")
-async def google_login(mode: str = "login"):
+async def google_login(
+    request: Request,
+    mode: str = "login",
+    redirect_to: Optional[str] = None,
+):
     """Redirects the client to Google's OAuth authorization gateway with mode (login/signup)."""
     target_page = "login" if mode == "login" else "signup"
+    frontend_url = get_effective_frontend_url(request, redirect_to)
+
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         error_msg = "Google OAuth is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render."
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error={error_msg}")
+        return RedirectResponse(url=f"{frontend_url}/{target_page}?error={error_msg}")
 
-    redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/google/callback"
+    backend_url = get_effective_backend_url(request)
+    redirect_uri = f"{backend_url}/api/v1/auth/google/callback"
+    state_param = f"{mode}:{redirect_to}" if redirect_to else mode
+
     google_auth_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={settings.GOOGLE_CLIENT_ID}"
@@ -722,23 +800,35 @@ async def google_login(mode: str = "login"):
         f"&response_type=code"
         f"&scope=openid%20email%20profile"
         f"&prompt=select_account"
-        f"&state={mode}"
+        f"&state={state_param}"
     )
     return RedirectResponse(url=google_auth_url)
 
 
 @router.get("/google/callback", summary="Google OAuth authorization callback")
 async def google_callback(
+    request: Request,
     code: Optional[str] = None,
     error: Optional[str] = None,
     state: Optional[str] = "login",
     db: AsyncSession = Depends(get_db),
 ):
     """Exchanges Google OAuth code. In login mode verifies existence; in signup mode creates user."""
-    target_page = "login" if state == "login" else "signup"
+    actual_mode = "login"
+    custom_dest = None
+    if state and ":" in state:
+        actual_mode, custom_dest = state.split(":", 1)
+    elif state:
+        actual_mode = state
+
+    target_page = "login" if actual_mode == "login" else "signup"
+    frontend_url = get_effective_frontend_url(request, custom_dest)
+    backend_url = get_effective_backend_url(request)
+    redirect_uri = f"{backend_url}/api/v1/auth/google/callback"
+
     if error or not code:
         err = error or "Authorization code missing"
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+authorization+failed:+{err}")
+        return RedirectResponse(url=f"{frontend_url}/{target_page}?error=Google+authorization+failed:+{err}")
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -749,7 +839,7 @@ async def google_callback(
                     "client_id": settings.GOOGLE_CLIENT_ID,
                     "client_secret": settings.GOOGLE_CLIENT_SECRET,
                     "code": code,
-                    "redirect_uri": f"{settings.BACKEND_URL}/api/v1/auth/google/callback",
+                    "redirect_uri": redirect_uri,
                     "grant_type": "authorization_code",
                 },
             )
@@ -758,7 +848,7 @@ async def google_callback(
 
             if not google_token:
                 logger.error(f"Google token exchange failed: {token_data}")
-                return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Failed+to+obtain+Google+access+token")
+                return RedirectResponse(url=f"{frontend_url}/{target_page}?error=Failed+to+obtain+Google+access+token")
 
             # 2. Fetch Google user profile
             user_resp = await client.get(
@@ -772,7 +862,7 @@ async def google_callback(
             avatar_url = g_user.get("picture")
 
             if not email:
-                return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+profile+did+not+provide+an+email")
+                return RedirectResponse(url=f"{frontend_url}/{target_page}?error=Google+profile+did+not+provide+an+email")
 
             email = email.lower().strip()
 
@@ -780,10 +870,10 @@ async def google_callback(
         stmt = select(User).where((User.email == email) | ((User.provider == "google") & (User.provider_id == g_id)))
         user = (await db.execute(stmt)).scalars().first()
 
-        if state == "login":
+        if actual_mode == "login":
             if not user:
                 return RedirectResponse(
-                    url=f"{settings.FRONTEND_URL}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
+                    url=f"{frontend_url}/login?error=No+account+found+for+{email}.+Please+sign+up+first."
                 )
             # Link or update provider profile info
             user.provider = "google"
@@ -796,7 +886,7 @@ async def google_callback(
             # state == "signup"
             if user:
                 return RedirectResponse(
-                    url=f"{settings.FRONTEND_URL}/login?error=An+account+with+email+{email}+already+exists.+Please+sign+in."
+                    url=f"{frontend_url}/login?error=An+account+with+email+{email}+already+exists.+Please+sign+in."
                 )
 
             user_handle = email.split("@")[0]
@@ -824,11 +914,11 @@ async def google_callback(
         # 4. Issue Aegis JWT Pair and redirect to frontend
         token = create_access_token(user_id=str(user.id), email=user.email)
         refresh_token = create_refresh_token(user_id=str(user.id))
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={token}&refresh_token={refresh_token}")
+        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={token}&refresh_token={refresh_token}")
 
     except Exception as e:
         logger.exception("Google OAuth exchange error")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+authentication+error")
+        return RedirectResponse(url=f"{frontend_url}/{target_page}?error=Google+authentication+error")
 
 
 @router.get("/cli-token", summary="Generate or retrieve personal CLI authentication token")

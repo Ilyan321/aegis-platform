@@ -392,3 +392,55 @@ async def test_revoke_all_sessions(async_client: AsyncClient):
     assert me_resp.status_code == 401
     assert "Session has been revoked" in me_resp.json()["detail"]
 
+
+@pytest.mark.asyncio
+async def test_oauth_redirect_uri_resolution(async_client: AsyncClient):
+    """Verifies that OAuth endpoints dynamically resolve reverse proxy headers for redirect_uri."""
+    # Temporarily ensure client credentials exist for testing redirect construction
+    from app.core.config import settings
+    orig_gh_id = settings.GITHUB_CLIENT_ID
+    orig_gh_secret = settings.GITHUB_CLIENT_SECRET
+    orig_g_id = settings.GOOGLE_CLIENT_ID
+    orig_g_secret = settings.GOOGLE_CLIENT_SECRET
+
+    settings.GITHUB_CLIENT_ID = "mock-github-client-id"
+    settings.GITHUB_CLIENT_SECRET = "mock-github-client-secret"
+    settings.GOOGLE_CLIENT_ID = "mock-google-client-id"
+    settings.GOOGLE_CLIENT_SECRET = "mock-google-client-secret"
+
+    try:
+        # Test GitHub OAuth initiation behind a reverse proxy (e.g. Render)
+        gh_resp = await async_client.get(
+            "/api/v1/auth/github?mode=login&redirect_to=https://aegis-platform-web.vercel.app",
+            headers={
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "aegis-platform-wwgp.onrender.com",
+            },
+            follow_redirects=False,
+        )
+        assert gh_resp.status_code == 307
+        gh_location = gh_resp.headers["location"]
+        assert "redirect_uri=https%3A%2F%2Faegis-platform-wwgp.onrender.com%2Fapi%2Fv1%2Fauth%2Fgithub%2Fcallback" in gh_location or "redirect_uri=https://aegis-platform-wwgp.onrender.com/api/v1/auth/github/callback" in gh_location
+        assert "mock-github-client-id" in gh_location
+
+        # Test Google OAuth initiation behind a reverse proxy
+        google_resp = await async_client.get(
+            "/api/v1/auth/google?mode=signup&redirect_to=https://aegis-platform-web.vercel.app",
+            headers={
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "aegis-platform-wwgp.onrender.com",
+            },
+            follow_redirects=False,
+        )
+        assert google_resp.status_code == 307
+        google_location = google_resp.headers["location"]
+        assert "redirect_uri=https%3A%2F%2Faegis-platform-wwgp.onrender.com%2Fapi%2Fv1%2Fauth%2Fgoogle%2Fcallback" in google_location or "redirect_uri=https://aegis-platform-wwgp.onrender.com/api/v1/auth/google/callback" in google_location
+        assert "mock-google-client-id" in google_location
+
+    finally:
+        settings.GITHUB_CLIENT_ID = orig_gh_id
+        settings.GITHUB_CLIENT_SECRET = orig_gh_secret
+        settings.GOOGLE_CLIENT_ID = orig_g_id
+        settings.GOOGLE_CLIENT_SECRET = orig_g_secret
+
+

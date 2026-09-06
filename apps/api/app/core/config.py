@@ -45,8 +45,12 @@ class Settings(BaseSettings):
 
     # CORS & Domains
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform-web.vercel.app"
-    FRONTEND_URL: str = Field(default="http://localhost:3000")
-    BACKEND_URL: str = Field(default="http://localhost:8000")
+    FRONTEND_URL: str = Field(
+        default="https://aegis-platform-web.vercel.app" if os.getenv("RENDER") else "http://localhost:3000"
+    )
+    BACKEND_URL: str = Field(
+        default=os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
+    )
 
     # OAuth Providers
     GITHUB_CLIENT_ID: str = ""
