@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { GitFork, GitBranch, Plus, Search, Copy, Shield, Trash2, Loader2, Play } from "lucide-react";
+import { GitFork, GitBranch, Plus, Search, Copy, Shield, Trash2, Loader2, Play, Check, Radio } from "lucide-react";
 import { Repository, deleteRepository, triggerRepositoryScan } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
+import { WebhookSetupModal } from "@/components/WebhookSetupModal";
 
 interface RepositoriesViewProps {
   repositories: Repository[];
@@ -25,6 +26,7 @@ export function RepositoriesView({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
+  const [webhookModalRepo, setWebhookModalRepo] = useState<Repository | null>(null);
 
   const handleTriggerScan = async (repo: Repository) => {
     setScanningIds((prev) => new Set(prev).add(repo.id));
@@ -173,10 +175,33 @@ export function RepositoriesView({
                       {repo.full_name}
                     </span>
                   </div>
-                  <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-primary px-2 py-0.5 rounded text-[10px] font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <span>Active</span>
-                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    {repo.webhook_installed ? (
+                      <button
+                        type="button"
+                        onClick={() => setWebhookModalRepo(repo)}
+                        className="inline-flex items-center space-x-1 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                        title="Webhook active. Click to view configuration."
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Webhook Active</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setWebhookModalRepo(repo)}
+                        className="inline-flex items-center space-x-1 bg-canvas hover:bg-subtle/60 border border-subtle hover:border-interactive text-muted hover:text-heading px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                        title="Webhook not verified. Click to configure or auto-install."
+                      >
+                        <Radio className="w-3 h-3 text-primary" />
+                        <span>Setup Webhook</span>
+                      </button>
+                    )}
+                    <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-primary px-2 py-0.5 rounded text-[10px] font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      <span>Active</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Branch & Created */}
@@ -291,6 +316,18 @@ export function RepositoriesView({
           ))}
         </div>
       )}
+
+      {/* Webhook Setup & Configuration Modal */}
+      <WebhookSetupModal
+        isOpen={!!webhookModalRepo}
+        onClose={() => setWebhookModalRepo(null)}
+        repository={webhookModalRepo}
+        onWebhookInstalled={(repoId) => {
+          const target = repositories.find((r) => r.id === repoId);
+          if (target) target.webhook_installed = true;
+          onScanTriggered?.();
+        }}
+      />
     </div>
   );
 }

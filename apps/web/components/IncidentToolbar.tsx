@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Play, Loader2 } from "lucide-react";
 
 interface IncidentToolbarProps {
   currentTab: string;
@@ -10,6 +10,8 @@ interface IncidentToolbarProps {
   onSearchChange: (q: string) => void;
   onOpenOnboardModal: () => void;
   totalCount: number;
+  onTriggerScan?: () => void;
+  isScanning?: boolean;
 }
 
 export function IncidentToolbar({
@@ -19,6 +21,8 @@ export function IncidentToolbar({
   onSearchChange,
   onOpenOnboardModal,
   totalCount,
+  onTriggerScan,
+  isScanning = false,
 }: IncidentToolbarProps) {
   const tabs = [
     { id: "ALL", label: "All Incidents" },
@@ -71,6 +75,24 @@ export function IncidentToolbar({
             className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface border border-subtle rounded-lg text-heading placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-interactive transition-all"
           />
         </div>
+
+        {/* Scan on Demand Button */}
+        {onTriggerScan && (
+          <button
+            type="button"
+            onClick={onTriggerScan}
+            disabled={isScanning}
+            className="flex items-center space-x-1.5 bg-canvas hover:bg-subtle/60 text-heading border border-subtle hover:border-interactive px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
+            title="Trigger on-demand cloud scan across connected repositories"
+          >
+            {isScanning ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+            ) : (
+              <Play className="w-3 h-3 text-primary fill-current" />
+            )}
+            <span>{isScanning ? "Scanning..." : "Scan on Demand"}</span>
+          </button>
+        )}
 
         {/* Connect Repository Button */}
         <button

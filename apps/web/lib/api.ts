@@ -37,6 +37,7 @@ export interface Repository {
   clone_url: string;
   default_branch: string;
   is_active: boolean;
+  webhook_installed?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -194,6 +195,12 @@ export async function deleteRepository(id: string): Promise<void> {
 
 export async function triggerRepositoryScan(repoId: string): Promise<ScanRun> {
   return apiFetch<ScanRun>(`/api/v1/repositories/${repoId}/scan`, {
+    method: "POST",
+  });
+}
+
+export async function triggerScanAllRepositories(): Promise<ScanRun[]> {
+  return apiFetch<ScanRun[]>("/api/v1/repositories/scan-all", {
     method: "POST",
   });
 }
@@ -429,4 +436,65 @@ export async function resetPassword(token: string, newPassword: string): Promise
   }
   return res.json();
 }
+
+export interface OrganizationSettings {
+  id: string;
+  name: string;
+  slug: string;
+  slack_webhook_url?: string | null;
+  discord_webhook_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchWorkspaceSettings(): Promise<OrganizationSettings> {
+  return apiFetch<OrganizationSettings>("/api/v1/organizations/settings");
+}
+
+export async function updateWorkspaceSettings(payload: {
+  slack_webhook_url?: string | null;
+  discord_webhook_url?: string | null;
+}): Promise<OrganizationSettings> {
+  return apiFetch<OrganizationSettings>("/api/v1/organizations/settings", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function sendTestAlert(channel: "slack" | "discord"): Promise<{ status: string; message: string }> {
+  return apiFetch<{ status: string; message: string }>("/api/v1/organizations/settings/test-alert", {
+    method: "POST",
+    body: JSON.stringify({ channel }),
+  });
+}
+
+export interface WebhookConfig {
+  webhook_url: string;
+  webhook_secret: string;
+  webhook_installed: boolean;
+  events: string[];
+}
+
+export async function fetchWebhookConfig(repoId: string): Promise<WebhookConfig> {
+  return apiFetch<WebhookConfig>(`/api/v1/repositories/${repoId}/webhook-config`);
+}
+
+export async function installRepositoryWebhook(repoId: string): Promise<{ status: string; message: string; webhook_installed: boolean }> {
+  return apiFetch<{ status: string; message: string; webhook_installed: boolean }>(`/api/v1/repositories/${repoId}/install-webhook`, {
+    method: "POST",
+  });
+}
+
+export interface CliTokenResponse {
+  cli_token: string;
+  token_type: string;
+  user_email: string;
+  organization_id?: string | null;
+  expires_in_days: number;
+}
+
+export async function fetchCliAuthToken(): Promise<CliTokenResponse> {
+  return apiFetch<CliTokenResponse>("/api/v1/auth/cli-token");
+}
+
 

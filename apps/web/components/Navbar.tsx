@@ -10,6 +10,8 @@ import {
   Shield,
   GitFork,
   Activity,
+  Bell,
+  Terminal,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -22,6 +24,8 @@ interface NavbarProps {
   onRefresh: () => void;
   isRefreshing?: boolean;
   activeOrgName?: string;
+  onOpenAlertSettings?: () => void;
+  onOpenCliAuth?: () => void;
 }
 
 export function Navbar({
@@ -31,6 +35,8 @@ export function Navbar({
   onRefresh,
   isRefreshing = false,
   activeOrgName,
+  onOpenAlertSettings,
+  onOpenCliAuth,
 }: NavbarProps) {
   const { user, loading, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -210,6 +216,34 @@ export function Navbar({
 
                   {/* Actions */}
                   <div className="pt-2 space-y-1">
+                    {onOpenAlertSettings && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          onOpenAlertSettings();
+                        }}
+                        className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                      >
+                        <Bell className="w-3.5 h-3.5 text-primary" />
+                        <span>Alert Settings & Webhooks</span>
+                      </button>
+                    )}
+
+                    {onOpenCliAuth && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          onOpenCliAuth();
+                        }}
+                        className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                      >
+                        <Terminal className="w-3.5 h-3.5 text-primary" />
+                        <span>CLI Authentication</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {

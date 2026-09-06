@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from typing import Any, Optional
 import uuid
 import httpx
@@ -742,5 +743,27 @@ async def google_callback(
     except Exception as e:
         logger.exception("Google OAuth exchange error")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/{target_page}?error=Google+authentication+error")
+
+
+@router.get("/cli-token", summary="Generate or retrieve personal CLI authentication token")
+async def get_cli_token(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generates a 30-day personal access token for use with the Aegis CLI (aegis login).
+    """
+    cli_token = create_access_token(
+        user_id=str(current_user.id),
+        email=current_user.email,
+        expires_delta=timedelta(days=30),
+    )
+    return {
+        "cli_token": cli_token,
+        "token_type": "bearer",
+        "user_email": current_user.email,
+        "organization_id": str(current_user.organization_id) if current_user.organization_id else None,
+        "expires_in_days": 30,
+    }
+
 
 

@@ -133,3 +133,30 @@ async def test_delete_repository(async_client: AsyncClient, test_user_data):
         headers=test_user_data["headers"],
     )
     assert get_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_trigger_scan_all_repositories(async_client: AsyncClient, test_user_data):
+    # Onboard two repositories
+    await async_client.post(
+        "/api/v1/repositories",
+        json={"full_name": "acme/service-alpha", "clone_url": "https://github.com/acme/service-alpha.git"},
+        headers=test_user_data["headers"],
+    )
+    await async_client.post(
+        "/api/v1/repositories",
+        json={"full_name": "acme/service-beta", "clone_url": "https://github.com/acme/service-beta.git"},
+        headers=test_user_data["headers"],
+    )
+
+    celery_app.send_task.reset_mock()
+    scan_all_resp = await async_client.post(
+        "/api/v1/repositories/scan-all",
+        headers=test_user_data["headers"],
+    )
+    assert scan_all_resp.status_code == 202
+    data = scan_all_resp.json()
+    assert len(data) >= 2
+    assert all(item["trigger_source"] == "manual_all" for item in data)
+    assert celery_app.send_task.called
+

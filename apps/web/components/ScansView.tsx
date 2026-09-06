@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Activity, GitCommit, GitBranch, ShieldAlert, CheckCircle2, Clock, AlertTriangle, RefreshCw } from "lucide-react";
+import { Activity, GitCommit, GitBranch, ShieldAlert, CheckCircle2, Clock, AlertTriangle, RefreshCw, Terminal, Play, GitFork } from "lucide-react";
 import { ScanRun, Repository } from "@/lib/api";
 
 interface ScansViewProps {
@@ -78,7 +78,7 @@ export function ScansView({
           </div>
           <h3 className="text-base font-semibold text-heading mb-1">No Scan Activity Recorded</h3>
           <p className="text-xs text-muted max-w-sm mx-auto">
-            Automated scan runs will appear here as webhooks trigger secret inspection on Git pushes and PR commits.
+            Automated scan runs will appear here as webhooks trigger secret inspection on Git pushes, PR commits, and local CLI streams.
           </p>
         </div>
       ) : (
@@ -88,6 +88,7 @@ export function ScansView({
               <thead>
                 <tr className="bg-canvas border-b border-subtle text-[11px] font-semibold uppercase tracking-wider text-muted">
                   <th className="py-3.5 px-6">Status</th>
+                  <th className="py-3.5 px-6">Source</th>
                   <th className="py-3.5 px-6">Repository</th>
                   <th className="py-3.5 px-6">Commit & Branch</th>
                   <th className="py-3.5 px-6">Files Scanned</th>
@@ -119,6 +120,26 @@ export function ScansView({
                             </span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Source */}
+                      <td className="py-4 px-6">
+                        {scan.trigger_source === "cli" ? (
+                          <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-heading px-2 py-0.5 rounded text-[11px] font-medium font-mono shadow-xs">
+                            <Terminal className="w-3 h-3 text-primary" />
+                            <span>Source: Local CLI</span>
+                          </span>
+                        ) : scan.trigger_source === "webhook" ? (
+                          <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-muted px-2 py-0.5 rounded text-[11px] font-medium">
+                            <GitFork className="w-3 h-3 text-primary" />
+                            <span>Webhook</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-muted px-2 py-0.5 rounded text-[11px] font-medium">
+                            <Play className="w-3 h-3 text-primary fill-current" />
+                            <span>On Demand</span>
+                          </span>
+                        )}
                       </td>
 
                       {/* Repository */}

@@ -11,6 +11,8 @@ import { OnboardModal } from "@/components/OnboardModal";
 import { CommandMenu } from "@/components/CommandMenu";
 import { RepositoriesView } from "@/components/RepositoriesView";
 import { ScansView } from "@/components/ScansView";
+import { AlertSettingsModal } from "@/components/AlertSettingsModal";
+import { CliAuthModal } from "@/components/CliAuthModal";
 import { Shield, GitFork, Activity } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -25,6 +27,7 @@ import {
   fetchTelemetry,
   fetchOrganizations,
   updateIncidentStatus,
+  triggerScanAllRepositories,
 } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -40,6 +43,7 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isScanningAll, setIsScanningAll] = useState(false);
 
   // Active View Tab: 'incidents' | 'repositories' | 'scans'
   const [currentView, setCurrentView] = useState<DashboardView>("incidents");
@@ -53,6 +57,8 @@ export default function DashboardPage() {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [isOnboardOpen, setIsOnboardOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isAlertSettingsOpen, setIsAlertSettingsOpen] = useState(false);
+  const [isCliAuthOpen, setIsCliAuthOpen] = useState(false);
 
   // Load Dashboard Data scoped to active user
   const loadDashboardData = useCallback(async (orgId?: string | null) => {
@@ -157,6 +163,40 @@ export default function DashboardPage() {
     }
   };
 
+  const handleTriggerCloudScan = async () => {
+    if (repositories.length === 0) {
+      toast({
+        type: "info",
+        title: "No repositories connected",
+        description: "Connect a repository first to run cloud secret scanning.",
+      });
+      setIsOnboardOpen(true);
+      return;
+    }
+
+    setIsScanningAll(true);
+    try {
+      const scans = await triggerScanAllRepositories();
+      toast({
+        type: "success",
+        title: "Cloud scan initiated",
+        description: `Queued deep inspection across ${scans.length} active repositories.`,
+      });
+      setTimeout(() => {
+        loadDashboardData(user?.organization_id);
+      }, 1500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to initiate cloud scan";
+      toast({
+        type: "error",
+        title: "Scan failed",
+        description: message,
+      });
+    } finally {
+      setIsScanningAll(false);
+    }
+  };
+
   // Filtered incidents based on active tab and search query
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
@@ -212,6 +252,8 @@ export default function DashboardPage() {
         onRefresh={handleRefresh}
         isRefreshing={refreshing}
         activeOrgName={activeOrgName}
+        onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
+        onOpenCliAuth={() => setIsCliAuthOpen(true)}
       />
 
       {/* Main Content Container with Breathable 8pt Spacing */}
@@ -308,6 +350,8 @@ export default function DashboardPage() {
                   onSearchChange={setSearchQuery}
                   onOpenOnboardModal={() => setIsOnboardOpen(true)}
                   totalCount={filteredIncidents.length}
+                  onTriggerScan={handleTriggerCloudScan}
+                  isScanning={isScanningAll}
                 />
 
                 {/* Incident Forensic Ledger */}
@@ -403,6 +447,20 @@ export default function DashboardPage() {
         }}
         onSetView={(view) => setCurrentView(view)}
         onRefresh={handleRefresh}
+        onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
+        onOpenCliAuth={() => setIsCliAuthOpen(true)}
+      />
+
+      {/* Alert Settings & Integration Modal */}
+      <AlertSettingsModal
+        isOpen={isAlertSettingsOpen}
+        onClose={() => setIsAlertSettingsOpen(false)}
+      />
+
+      {/* CLI Authentication Modal */}
+      <CliAuthModal
+        isOpen={isCliAuthOpen}
+        onClose={() => setIsCliAuthOpen(false)}
       />
     </div>
   );

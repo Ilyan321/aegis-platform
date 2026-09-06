@@ -43,8 +43,17 @@ class RepositoryRead(RepositoryBase):
     id: uuid.UUID
     organization_id: uuid.UUID
     is_active: bool
+    webhook_installed: bool = False
     created_at: datetime
     updated_at: datetime
     # We do NOT leak the webhook_secret in standard read schemas
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WebhookConfigResponse(BaseModel):
+    webhook_url: str
+    webhook_secret: str
+    webhook_installed: bool
+    events: list[str] = ["push", "pull_request"]
+

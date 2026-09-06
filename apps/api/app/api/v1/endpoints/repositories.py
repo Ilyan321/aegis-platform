@@ -13,8 +13,9 @@ from app.models.organization import Organization
 from app.models.repository import Repository
 from app.models.scan_run import ScanRun
 from app.models.user import User
-from app.schemas.repository import RepositoryCreate, RepositoryRead
+from app.schemas.repository import RepositoryCreate, RepositoryRead, WebhookConfigResponse
 from app.schemas.scan_run import ScanRunRead
+from app.services.github_service import GitHubService
 
 logger = logging.getLogger("aegis.repositories")
 router = APIRouter()
@@ -112,7 +113,85 @@ async def create_repository(
     except Exception as exc:
         logger.warning(f"Could not enqueue onboarding scan for {repo.full_name}: {exc}")
 
+    # Automatically attempt to install GitHub Webhook if user has OAuth token
+    if current_user.github_access_token and "github.com" in repo.clone_url:
+        gh_token = current_user.get_github_token()
+        if gh_token:
+            installed, msg = await GitHubService.install_repository_webhook(
+                github_token=gh_token,
+                repo_full_name=repo.full_name,
+                webhook_secret=repo.webhook_secret,
+            )
+            if installed:
+                repo.webhook_installed = True
+                await db.commit()
+                await db.refresh(repo)
+
     return repo
+
+
+@router.post(
+    "/scan-all",
+    response_model=List[ScanRunRead],
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger cloud scans across all active repositories in the workspace",
+)
+async def trigger_scan_all_repositories(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not current_user.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User does not belong to an active organization workspace",
+        )
+
+    stmt = select(Repository).where(
+        Repository.organization_id == current_user.organization_id,
+        Repository.is_active == True,
+    )
+    repos = (await db.execute(stmt)).scalars().all()
+    if not repos:
+        return []
+
+    scan_runs = []
+    for repo in repos:
+        scan_run = ScanRun(
+            repository_id=repo.id,
+            commit_sha="HEAD",
+            branch=repo.default_branch,
+            trigger_source="manual_all",
+            status="QUEUED",
+        )
+        db.add(scan_run)
+        scan_runs.append((scan_run, repo))
+
+    await db.commit()
+    for scan_run, _ in scan_runs:
+        await db.refresh(scan_run)
+
+    for scan_run, repo in scan_runs:
+        try:
+            celery_app.send_task(
+                "aegis.tasks.process_scan_event",
+                kwargs={
+                    "scan_run_id": str(scan_run.id),
+                    "repository_id": str(repo.id),
+                    "clone_url": repo.clone_url,
+                    "branch": repo.default_branch,
+                    "commit_sha": "HEAD",
+                    "committer_handle": current_user.email,
+                    "delivery_guid": f"manual-all-{uuid.uuid4()}",
+                },
+            )
+            logger.info(f"Enqueued scan {scan_run.id} for repo {repo.full_name}")
+        except Exception as exc:
+            logger.error(f"Failed to enqueue scan task for {repo.full_name}: {exc}")
+            scan_run.status = "FAILED"
+            scan_run.error_message = f"Broker enqueue error: {str(exc)}"
+
+    await db.commit()
+    return [sr for sr, _ in scan_runs]
 
 
 @router.get("/{repo_id}", response_model=RepositoryRead, summary="Get repository details")
@@ -238,5 +317,70 @@ async def delete_repository(
     await db.delete(repo)
     await db.commit()
     return None
+
+
+@router.post(
+    "/{repo_id}/install-webhook",
+    summary="Install or verify GitHub webhook on connected repository",
+)
+async def install_repository_webhook(
+    repo_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Repository).where(Repository.id == repo_id)
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+    repo = (await db.execute(stmt)).scalar_one_or_none()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found")
+
+    gh_token = current_user.get_github_token()
+    if not gh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No GitHub OAuth access token found for your account. Please link your GitHub account or configure the webhook manually.",
+        )
+
+    success, msg = await GitHubService.install_repository_webhook(
+        github_token=gh_token,
+        repo_full_name=repo.full_name,
+        webhook_secret=repo.webhook_secret,
+    )
+    if success:
+        repo.webhook_installed = True
+        await db.commit()
+        return {"status": "success", "message": msg, "webhook_installed": True}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"GitHub Webhook installation failed: {msg}",
+        )
+
+
+@router.get(
+    "/{repo_id}/webhook-config",
+    response_model=WebhookConfigResponse,
+    summary="Get webhook configuration and payload URL for repository",
+)
+async def get_repository_webhook_config(
+    repo_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Repository).where(Repository.id == repo_id)
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+    repo = (await db.execute(stmt)).scalar_one_or_none()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found")
+
+    return WebhookConfigResponse(
+        webhook_url=GitHubService.get_webhook_url(),
+        webhook_secret=repo.webhook_secret,
+        webhook_installed=repo.webhook_installed,
+        events=["push", "pull_request"],
+    )
+
 
 
