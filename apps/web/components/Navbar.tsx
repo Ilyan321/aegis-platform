@@ -13,6 +13,7 @@ import {
   Bell,
   Terminal,
   User,
+  Key,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -247,6 +248,15 @@ export function Navbar({
                       </button>
                     )}
 
+                    <Link
+                      href="/cli"
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                    >
+                      <Terminal className="w-3.5 h-3.5 text-primary" />
+                      <span>Aegis CLI & Windows Guide</span>
+                    </Link>
+
                     {onOpenCliAuth && (
                       <button
                         type="button"
@@ -256,8 +266,8 @@ export function Navbar({
                         }}
                         className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
                       >
-                        <Terminal className="w-3.5 h-3.5 text-primary" />
-                        <span>Aegis CLI</span>
+                        <Key className="w-3.5 h-3.5 text-primary" />
+                        <span>Quick CLI Token Modal</span>
                       </button>
                     )}
 

@@ -74,7 +74,7 @@ export function CliAuthModal({ isOpen, onClose }: CliAuthModalProps) {
     ? `aegis login --token ${tokenData.cli_token}`
     : "aegis login";
   const scanCmd = "aegis scan --sync";
-  const hookCmd = "aegis install-hook";
+  const hookCmd = "aegis init";
 
   return (
     <div
