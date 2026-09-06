@@ -43,13 +43,13 @@ class Settings(BaseSettings):
     # Webhook defaults
     WEBHOOK_SECRET_DEFAULT: str = "aegis-default-webhook-secret"
 
-    # CORS & Domains
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform-web.vercel.app,https://aegis-platform.ilyankhan.tech,https://aegis.ilyankhan.tech,https://aegis-api.ilyankhan.tech"
+    # CORS & Domains (Strict Single Canonical Domain)
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform.ilyankhan.tech,https://aegis.ilyankhan.tech,https://aegis-api.ilyankhan.tech"
     FRONTEND_URL: str = Field(
-        default="https://aegis-platform-web.vercel.app" if os.getenv("RENDER") else "http://localhost:3000"
+        default="https://aegis-platform.ilyankhan.tech" if os.getenv("RENDER") else "http://localhost:3000"
     )
     BACKEND_URL: str = Field(
-        default=os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
+        default="https://aegis-api.ilyankhan.tech" if os.getenv("RENDER") else os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
     )
 
     # OAuth Providers

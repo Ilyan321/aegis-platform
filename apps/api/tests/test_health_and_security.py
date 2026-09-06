@@ -45,20 +45,20 @@ async def test_readiness_probe_alias(async_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_cors_headers_allowed_origin(async_client: AsyncClient):
-    """Verify allowed aegis vercel deployment origin is accepted."""
+    """Verify allowed aegis custom domain origin is accepted."""
     headers = {
-        "Origin": "https://aegis-platform-preview-123.vercel.app",
+        "Origin": "https://aegis-platform.ilyankhan.tech",
         "Access-Control-Request-Method": "GET",
     }
     response = await async_client.options("/health", headers=headers)
-    assert response.headers.get("access-control-allow-origin") == "https://aegis-platform-preview-123.vercel.app"
+    assert response.headers.get("access-control-allow-origin") == "https://aegis-platform.ilyankhan.tech"
 
 
 @pytest.mark.asyncio
 async def test_cors_headers_rejected_attacker_origin(async_client: AsyncClient):
-    """Verify arbitrary third-party vercel origin is rejected."""
+    """Verify arbitrary third-party origin is rejected."""
     headers = {
-        "Origin": "https://evil-attacker.vercel.app",
+        "Origin": "https://evil-attacker.com",
         "Access-Control-Request-Method": "GET",
     }
     response = await async_client.options("/health", headers=headers)

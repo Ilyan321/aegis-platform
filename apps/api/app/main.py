@@ -28,7 +28,7 @@ is_wildcard = "*" in settings.cors_origin_list
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_origin_regex=r"^(https://aegis-platform(-[a-zA-Z0-9_-]+)?\.vercel\.app|https://([a-zA-Z0-9_-]+\.)?ilyankhan\.tech)$" if not is_wildcard else None,
+    allow_origin_regex=r"^https://([a-zA-Z0-9_-]+\.)?ilyankhan\.tech$" if not is_wildcard else None,
     allow_credentials=not is_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],

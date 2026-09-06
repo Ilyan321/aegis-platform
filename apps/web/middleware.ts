@@ -14,6 +14,16 @@ const PUBLIC_PATHS = [
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+
+  // Enforce Canonical Domain: redirect any non-local vercel.app traffic to aegis-platform.ilyankhan.tech
+  if (host.includes("vercel.app") && !host.includes("localhost")) {
+    const canonicalUrl = new URL(
+      request.nextUrl.pathname + request.nextUrl.search,
+      "https://aegis-platform.ilyankhan.tech"
+    );
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
 
   // Ignore static assets, next internal files, and favicon
   if (
