@@ -29,7 +29,6 @@ from app.models.repository import Repository
 from app.models.scan_run import ScanRun
 from app.models.user import User
 from app.services.notifications import (
-    send_discord_scan_summary_alert,
     send_slack_incident_alert,
     send_slack_scan_summary_alert,
 )
@@ -405,9 +404,8 @@ async def execute_scan_workflow(
             # Fetch organization alert webhook configuration
             org = await db.get(Organization, repository.organization_id)
             slack_url = (org.slack_webhook_url if org and org.slack_webhook_url else None) or settings.SLACK_WEBHOOK_URL
-            discord_url = org.discord_webhook_url if org and org.discord_webhook_url else None
 
-            # Send aggregated Slack & Discord notification cards (replaces per-finding flood)
+            # Send aggregated Slack notification card (replaces per-finding flood)
             if alert_findings or regressions_count > 0:
                 if slack_url and slack_url.strip():
                     await send_slack_scan_summary_alert(
@@ -421,19 +419,6 @@ async def execute_scan_workflow(
                         findings=alert_findings,
                         regressions_count=regressions_count,
                         webhook_url=slack_url,
-                    )
-                if discord_url and discord_url.strip():
-                    await send_discord_scan_summary_alert(
-                        webhook_url=discord_url,
-                        repo_name=repository.full_name,
-                        branch=branch,
-                        commit_sha=commit_sha,
-                        committer=committer_handle,
-                        total_findings=len(findings_list),
-                        active_leaks_count=active_leaks_count,
-                        critical_count=critical_count,
-                        findings=alert_findings,
-                        regressions_count=regressions_count,
                     )
 
             # 7. Resolution Sweep

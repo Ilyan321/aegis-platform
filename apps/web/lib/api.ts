@@ -520,7 +520,6 @@ export interface OrganizationSettings {
   name: string;
   slug: string;
   slack_webhook_url?: string | null;
-  discord_webhook_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -531,7 +530,6 @@ export async function fetchWorkspaceSettings(): Promise<OrganizationSettings> {
 
 export async function updateWorkspaceSettings(payload: {
   slack_webhook_url?: string | null;
-  discord_webhook_url?: string | null;
 }): Promise<OrganizationSettings> {
   return apiFetch<OrganizationSettings>("/api/v1/organizations/settings", {
     method: "PATCH",
@@ -539,7 +537,7 @@ export async function updateWorkspaceSettings(payload: {
   });
 }
 
-export async function sendTestAlert(channel: "slack" | "discord"): Promise<{ status: string; message: string }> {
+export async function sendTestAlert(channel: "slack" = "slack"): Promise<{ status: string; message: string }> {
   return apiFetch<{ status: string; message: string }>("/api/v1/organizations/settings/test-alert", {
     method: "POST",
     body: JSON.stringify({ channel }),

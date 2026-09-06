@@ -254,160 +254,58 @@ async def send_slack_scan_summary_alert(
         return False
 
 
-async def send_discord_scan_summary_alert(
-    webhook_url: str,
-    repo_name: str,
-    branch: str,
-    commit_sha: str,
-    committer: Optional[str],
-    total_findings: int,
-    active_leaks_count: int,
-    critical_count: int,
-    findings: List[Dict[str, Any]],
-    regressions_count: int = 0,
-) -> bool:
-    """
-    Dispatches a structured Discord webhook embed summarizing scan findings.
-    """
-    target_url = webhook_url.strip()
-    if not target_url:
-        return False
-
-    if total_findings == 0 and regressions_count == 0:
-        return False
-
-    short_commit = commit_sha[:7] if commit_sha else "unknown"
-    committer_display = f"@{committer}" if committer else "Unknown"
-
-    if regressions_count > 0:
-        color = 15158332  # Red
-        title = f"🔄 REGRESSION: {regressions_count} Reintroduced Secret(s) in {repo_name}"
-    elif active_leaks_count > 0:
-        color = 15158332  # Red
-        title = f"🚨 CRITICAL: {active_leaks_count} Live Active Leak(s) in {repo_name}"
-    elif critical_count > 0:
-        color = 15105570  # Orange
-        title = f"⚠️ CRITICAL: {critical_count} High-Risk Finding(s) in {repo_name}"
-    else:
-        color = 16776960  # Yellow
-        title = f"🔍 Aegis Scan: {total_findings} Finding(s) in {repo_name}"
-
-    fields = [
-        {"name": "Repository", "value": f"`{repo_name}`", "inline": True},
-        {"name": "Branch / Commit", "value": f"`{branch}` (`{short_commit}`)", "inline": True},
-        {"name": "Author", "value": committer_display, "inline": True},
-        {
-            "name": "Summary",
-            "value": f"Total: **{total_findings}** | Active: **{active_leaks_count}** | Critical: **{critical_count}**",
-            "inline": False,
-        },
-    ]
-
-    # Add top 4 findings as fields
-    for idx, item in enumerate(findings[:4], 1):
-        v_status = item.get("verification_status", "NOT_VERIFIED")
-        rule_label = item.get("rule_name") or item.get("rule_id", "Secret")
-        path_label = f"{item.get('file_path', 'unknown')}:{item.get('line_number', 0)}"
-        masked = item.get("masked_snippet", "****")
-        sev = item.get("severity", "HIGH")
-        v_badge = "🔴 ACTIVE" if v_status == "ACTIVE" else v_status
-
-        fields.append({
-            "name": f"#{idx} {rule_label} [{sev}]",
-            "value": f"• **Status:** `{v_badge}`\n• **File:** `{path_label}`\n• **Token:** `{masked}`",
-            "inline": False,
-        })
-
-    payload = {
-        "content": "🛡️ **Aegis Security Intercept Alert**",
-        "embeds": [
-            {
-                "title": title[:256],
-                "color": color,
-                "fields": fields,
-                "footer": {"text": "Aegis Continuous DevSecOps Platform"},
-            }
-        ],
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
-            resp = await client.post(target_url, json=payload)
-            return resp.status_code in (200, 204)
-    except Exception as exc:
-        logger.error(f"Failed to post Discord summary: {exc}")
-        return False
-
-
 async def send_test_alert(webhook_url: str, channel: str = "slack") -> tuple[bool, str]:
     """
-    Sends a test verification notification to a user's configured Slack or Discord incoming webhook.
+    Sends a test verification notification to a user's configured Slack incoming webhook.
     """
     clean_url = webhook_url.strip()
     if not clean_url:
         return False, "Webhook URL cannot be empty"
 
-    if channel == "discord":
-        payload = {
-            "content": "🛡️ **Aegis Security Control Plane** — Integration Test",
-            "embeds": [
-                {
-                    "title": "Alert Integration Active",
-                    "description": "This test notification confirms your Aegis Platform alert channel is successfully connected.",
-                    "color": 2067276,  # Dark green
-                    "fields": [
-                        {"name": "Status", "value": "🟢 Verified Connected", "inline": True},
-                        {"name": "Environment", "value": "Production Control Plane", "inline": True},
-                    ],
-                    "footer": {"text": "Aegis Continuous DevSecOps Intelligence"},
-                }
-            ],
-        }
-    else:  # slack
-        payload = {
-            "text": "🛡️ *Aegis Security Control Plane* — Alert Integration Verified",
-            "blocks": [
-                {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "🛡️ Aegis Alert Integration Verified",
-                        "emoji": True,
-                    },
+    payload = {
+        "text": "🛡️ *Aegis Security Control Plane* — Alert Integration Verified",
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🛡️ Aegis Alert Integration Verified",
+                    "emoji": True,
                 },
-                {
-                    "type": "section",
-                    "text": {
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        "This test notification confirms your workspace alert channel is successfully "
+                        "connected to the *Aegis Security Platform*. High-priority leaks and compliance "
+                        "incidents will be dispatched here in real time."
+                    ),
+                },
+            },
+            {"type": "divider"},
+            {
+                "type": "context",
+                "elements": [
+                    {
                         "type": "mrkdwn",
-                        "text": (
-                            "This test notification confirms your workspace alert channel is successfully "
-                            "connected to the *Aegis Security Platform*. High-priority leaks and compliance "
-                            "incidents will be dispatched here in real time."
-                        ),
-                    },
-                },
-                {"type": "divider"},
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": "🟢 *Status:* Operational • © Aegis Security Inc.",
-                        }
-                    ],
-                },
-            ],
-        }
+                        "text": "🟢 *Status:* Operational • © Aegis Security Inc.",
+                    }
+                ],
+            },
+        ],
+    }
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(clean_url, json=payload)
             if resp.status_code in (200, 204):
-                return True, f"Successfully dispatched test notification to {channel.capitalize()}."
+                return True, "Successfully dispatched test notification to Slack."
             else:
-                return False, f"{channel.capitalize()} webhook returned HTTP {resp.status_code}: {resp.text}"
+                return False, f"Slack webhook returned HTTP {resp.status_code}: {resp.text}"
     except Exception as exc:
-        logger.error(f"Failed to send test alert to {channel}: {exc}")
+        logger.error(f"Failed to send test alert to Slack: {exc}")
         return False, str(exc)
 
 

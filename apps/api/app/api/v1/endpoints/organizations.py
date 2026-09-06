@@ -81,7 +81,7 @@ async def get_organization_settings(
 @router.patch(
     "/settings",
     response_model=OrganizationSettingsRead,
-    summary="Update workspace alert settings (Slack and Discord webhook URLs)",
+    summary="Update workspace alert settings (Slack webhook URL)",
 )
 async def update_organization_settings(
     settings_in: OrganizationSettingsUpdate,
@@ -101,10 +101,6 @@ async def update_organization_settings(
         val = settings_in.slack_webhook_url.strip()
         org.slack_webhook_url = val if val else None
 
-    if settings_in.discord_webhook_url is not None:
-        val = settings_in.discord_webhook_url.strip()
-        org.discord_webhook_url = val if val else None
-
     await db.commit()
     await db.refresh(org)
     return org
@@ -112,7 +108,7 @@ async def update_organization_settings(
 
 @router.post(
     "/settings/test-alert",
-    summary="Send test alert to configured Slack or Discord webhook",
+    summary="Send test alert to configured Slack webhook",
 )
 async def trigger_test_alert(
     data: TestAlertRequest,
@@ -128,21 +124,21 @@ async def trigger_test_alert(
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
 
-    target_url = org.discord_webhook_url if data.channel == "discord" else org.slack_webhook_url
+    target_url = org.slack_webhook_url
     if not target_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No {data.channel.capitalize()} webhook URL has been configured for this workspace.",
+            detail="No Slack webhook URL has been configured for this workspace.",
         )
 
-    success, message = await send_test_alert(target_url, channel=data.channel)
+    success, message = await send_test_alert(target_url, channel="slack")
     if not success:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Test alert failed: {message}",
         )
 
-    return {"status": "success", "channel": data.channel, "message": message}
+    return {"status": "success", "channel": "slack", "message": message}
 
 
 @router.get("/{org_id}", response_model=OrganizationRead, summary="Get organization by ID")

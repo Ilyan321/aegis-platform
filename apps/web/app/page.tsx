@@ -13,7 +13,6 @@ import { CommandMenu } from "@/components/CommandMenu";
 import { RepositoriesView } from "@/components/RepositoriesView";
 import { ScansView } from "@/components/ScansView";
 import { AlertSettingsModal } from "@/components/AlertSettingsModal";
-import { CliAuthModal } from "@/components/CliAuthModal";
 import { AccountSettingsModal } from "@/components/AccountSettingsModal";
 import { Shield, GitFork, Activity, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -85,7 +84,6 @@ export default function DashboardPage() {
   const [isOnboardOpen, setIsOnboardOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isAlertSettingsOpen, setIsAlertSettingsOpen] = useState(false);
-  const [isCliAuthOpen, setIsCliAuthOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
 
   // Load Dashboard Data scoped to active user
@@ -310,7 +308,6 @@ export default function DashboardPage() {
         isRefreshing={refreshing}
         activeOrgName={activeOrgName}
         onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
-        onOpenCliAuth={() => setIsCliAuthOpen(true)}
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
       />
 
@@ -550,7 +547,6 @@ export default function DashboardPage() {
         onSetView={(view) => setCurrentView(view)}
         onRefresh={handleRefresh}
         onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
-        onOpenCliAuth={() => setIsCliAuthOpen(true)}
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
       />
 
@@ -558,12 +554,6 @@ export default function DashboardPage() {
       <AlertSettingsModal
         isOpen={isAlertSettingsOpen}
         onClose={() => setIsAlertSettingsOpen(false)}
-      />
-
-      {/* CLI Authentication Modal */}
-      <CliAuthModal
-        isOpen={isCliAuthOpen}
-        onClose={() => setIsCliAuthOpen(false)}
       />
 
       {/* Account & Security Settings Modal */}

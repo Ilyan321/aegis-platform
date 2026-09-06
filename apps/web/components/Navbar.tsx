@@ -13,7 +13,6 @@ import {
   Bell,
   Terminal,
   User,
-  Key,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -27,7 +26,6 @@ interface NavbarProps {
   isRefreshing?: boolean;
   activeOrgName?: string;
   onOpenAlertSettings?: () => void;
-  onOpenCliAuth?: () => void;
   onOpenAccountSettings?: () => void;
 }
 
@@ -39,7 +37,6 @@ export function Navbar({
   isRefreshing = false,
   activeOrgName,
   onOpenAlertSettings,
-  onOpenCliAuth,
   onOpenAccountSettings,
 }: NavbarProps) {
   const { user, loading, logout } = useAuth();
@@ -256,20 +253,6 @@ export function Navbar({
                       <Terminal className="w-3.5 h-3.5 text-primary" />
                       <span>Aegis CLI & Windows Guide</span>
                     </Link>
-
-                    {onOpenCliAuth && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileOpen(false);
-                          onOpenCliAuth();
-                        }}
-                        className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
-                      >
-                        <Key className="w-3.5 h-3.5 text-primary" />
-                        <span>Quick CLI Token Modal</span>
-                      </button>
-                    )}
 
                     <button
                       type="button"

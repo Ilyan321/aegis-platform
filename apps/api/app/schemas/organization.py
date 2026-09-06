@@ -30,16 +30,14 @@ class OrganizationSettingsRead(BaseModel):
     name: str
     slug: str
     slack_webhook_url: Optional[str] = None
-    discord_webhook_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class OrganizationSettingsUpdate(BaseModel):
     slack_webhook_url: Optional[str] = Field(None, max_length=512)
-    discord_webhook_url: Optional[str] = Field(None, max_length=512)
 
 
 class TestAlertRequest(BaseModel):
-    channel: str = Field("slack", pattern=r"^(slack|discord)$")
+    channel: str = Field("slack", pattern=r"^slack$")
 

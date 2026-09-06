@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Search, ShieldAlert, Shield, GitFork, AlertCircle, Plus, X, Activity, RefreshCw, Bell, Terminal, User } from "lucide-react";
 import { Incident, Repository } from "@/lib/api";
@@ -17,7 +18,6 @@ interface CommandMenuProps {
   onSetView?: (view: "incidents" | "repositories" | "scans") => void;
   onRefresh?: () => void;
   onOpenAlertSettings?: () => void;
-  onOpenCliAuth?: () => void;
   onOpenAccountSettings?: () => void;
 }
 
@@ -33,9 +33,9 @@ export function CommandMenu({
   onSetView,
   onRefresh,
   onOpenAlertSettings,
-  onOpenCliAuth,
   onOpenAccountSettings,
 }: CommandMenuProps) {
+  const router = useRouter();
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName))) {
@@ -184,18 +184,16 @@ export function CommandMenu({
                   <span>Configure Workspace Alert Settings...</span>
                 </Command.Item>
               )}
-              {onOpenCliAuth && (
-                <Command.Item
-                  onSelect={() => {
-                    onOpenCliAuth();
-                    onClose();
-                  }}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
-                >
-                  <Terminal className="w-4 h-4 text-primary" />
-                  <span>Aegis CLI (Download & Setup)...</span>
-                </Command.Item>
-              )}
+              <Command.Item
+                onSelect={() => {
+                  router.push("/cli");
+                  onClose();
+                }}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+              >
+                <Terminal className="w-4 h-4 text-primary" />
+                <span>Aegis CLI & Windows Guide...</span>
+              </Command.Item>
               {onRefresh && (
                 <Command.Item
                   onSelect={() => {

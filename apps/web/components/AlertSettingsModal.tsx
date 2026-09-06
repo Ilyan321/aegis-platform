@@ -34,11 +34,9 @@ export function AlertSettingsModal({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testingSlack, setTestingSlack] = useState(false);
-  const [testingDiscord, setTestingDiscord] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [slackUrl, setSlackUrl] = useState("");
-  const [discordUrl, setDiscordUrl] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -47,7 +45,6 @@ export function AlertSettingsModal({
       fetchWorkspaceSettings()
         .then((settings) => {
           setSlackUrl(settings.slack_webhook_url || "");
-          setDiscordUrl(settings.discord_webhook_url || "");
         })
         .catch((err) => {
           console.error("Failed to load alert settings:", err);
@@ -81,13 +78,12 @@ export function AlertSettingsModal({
     try {
       const updated = await updateWorkspaceSettings({
         slack_webhook_url: slackUrl.trim() || null,
-        discord_webhook_url: discordUrl.trim() || null,
       });
 
       toast({
         type: "success",
         title: "Alert Settings Saved",
-        description: "Workspace notification webhooks have been successfully updated.",
+        description: "Workspace Slack notifications have been successfully updated.",
       });
       onSettingsUpdated?.(updated);
       onClose();
@@ -119,7 +115,6 @@ export function AlertSettingsModal({
       // First save current inputs
       await updateWorkspaceSettings({
         slack_webhook_url: slackUrl.trim(),
-        discord_webhook_url: discordUrl.trim() || null,
       });
 
       const res = await sendTestAlert("slack");
@@ -137,42 +132,6 @@ export function AlertSettingsModal({
       });
     } finally {
       setTestingSlack(false);
-    }
-  };
-
-  const handleTestDiscord = async () => {
-    if (!discordUrl.trim()) {
-      toast({
-        type: "info",
-        title: "Discord URL Required",
-        description: "Please enter a Discord webhook URL to send a test alert.",
-      });
-      return;
-    }
-
-    setTestingDiscord(true);
-    try {
-      // First save current inputs
-      await updateWorkspaceSettings({
-        slack_webhook_url: slackUrl.trim() || null,
-        discord_webhook_url: discordUrl.trim(),
-      });
-
-      const res = await sendTestAlert("discord");
-      toast({
-        type: "success",
-        title: "Discord Notification Sent",
-        description: res.message || "Test alert delivered to your Discord channel.",
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Discord webhook dispatch failed";
-      toast({
-        type: "error",
-        title: "Test Alert Failed",
-        description: msg,
-      });
-    } finally {
-      setTestingDiscord(false);
     }
   };
 
@@ -271,49 +230,25 @@ export function AlertSettingsModal({
                 </p>
               </div>
 
-              {/* Discord Webhook Section */}
+              {/* Resend Email Security Alerts Section */}
               <div className="space-y-2 pt-2 border-t border-subtle">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-heading flex items-center space-x-2">
-                    <span className="w-2 h-2 rounded-full bg-[#5865F2]" />
-                    <span>Discord Incoming Webhook</span>
+                    <span className="w-2 h-2 rounded-full bg-primary" />
+                    <span>Resend Email Breach Notifications</span>
                   </label>
-                  <a
-                    href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-primary hover:text-heading transition-colors flex items-center space-x-1"
-                  >
-                    <span>Discord Docs</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <span className="text-[10px] font-semibold bg-canvas border border-subtle text-primary px-2 py-0.2 rounded-full">
+                    Active
+                  </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="url"
-                    placeholder="https://discord.com/api/webhooks/..."
-                    value={discordUrl}
-                    onChange={(e) => setDiscordUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs bg-canvas border border-subtle rounded-lg text-heading placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-interactive font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleTestDiscord}
-                    disabled={testingDiscord || !discordUrl.trim()}
-                    className="px-3 py-2 text-xs font-semibold bg-surface hover:bg-subtle border border-subtle rounded-lg text-heading flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-                    title="Send a test notification to Discord"
-                  >
-                    {testingDiscord ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                    ) : (
-                      <Send className="w-3.5 h-3.5 text-primary" />
-                    )}
-                    <span>Test</span>
-                  </button>
+                <div className="p-3 bg-canvas border border-subtle rounded-xl text-xs space-y-1 text-muted">
+                  <p className="text-[11px] text-heading font-medium">
+                    Verified Sender: <code className="font-mono text-primary">noreply@aegis-platform-mail.ilyankhan.tech</code>
+                  </p>
+                  <p className="text-[11px]">
+                    Critical findings and verification alerts are automatically dispatched directly to your account inbox.
+                  </p>
                 </div>
-                <p className="text-[11px] text-muted">
-                  High-priority security alerts with live verification badges will be sent as rich embeds.
-                </p>
               </div>
 
               {/* Notification Guarantees Callout */}

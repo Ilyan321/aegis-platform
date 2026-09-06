@@ -21,10 +21,7 @@ from app.models.repository import Repository
 from app.models.scan_run import ScanRun
 from app.models.user import User
 from app.schemas.scan_run import CliScanPayload, CliScanResponse
-from app.services.notifications import (
-    send_discord_scan_summary_alert,
-    send_slack_scan_summary_alert,
-)
+from app.services.notifications import send_slack_scan_summary_alert
 
 logger = logging.getLogger("aegis.scans.cli")
 router = APIRouter()
@@ -202,7 +199,6 @@ async def ingest_cli_scan(
     if alert_findings or regressions_count > 0:
         org = await db.get(Organization, target_org_id)
         slack_url = (org.slack_webhook_url if org and org.slack_webhook_url else None) or settings.SLACK_WEBHOOK_URL
-        discord_url = org.discord_webhook_url if org and org.discord_webhook_url else None
 
         if slack_url and slack_url.strip():
             await send_slack_scan_summary_alert(
@@ -216,19 +212,6 @@ async def ingest_cli_scan(
                 findings=alert_findings,
                 regressions_count=regressions_count,
                 webhook_url=slack_url,
-            )
-        if discord_url and discord_url.strip():
-            await send_discord_scan_summary_alert(
-                webhook_url=discord_url,
-                repo_name=repo.full_name,
-                branch=scan_run.branch,
-                commit_sha=scan_run.commit_sha,
-                committer=current_user.email,
-                total_findings=len(payload.findings),
-                active_leaks_count=payload.active_leaks_count,
-                critical_count=payload.critical_count,
-                findings=alert_findings,
-                regressions_count=regressions_count,
             )
 
     return CliScanResponse(

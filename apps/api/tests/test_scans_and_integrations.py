@@ -97,21 +97,18 @@ async def test_organization_settings_and_test_alert(async_client: AsyncClient, t
     assert get_resp.status_code == 200
     settings_data = get_resp.json()
     assert "slack_webhook_url" in settings_data
-    assert "discord_webhook_url" in settings_data
 
     # 2. Update Webhook URLs
     update_resp = await async_client.patch(
         "/api/v1/organizations/settings",
         json={
             "slack_webhook_url": "https://hooks.slack.com/services/T000/B000/XXXX",
-            "discord_webhook_url": "https://discord.com/api/webhooks/123456/abcdef",
         },
         headers=test_user_data["headers"],
     )
     assert update_resp.status_code == 200
     updated = update_resp.json()
     assert updated["slack_webhook_url"] == "https://hooks.slack.com/services/T000/B000/XXXX"
-    assert updated["discord_webhook_url"] == "https://discord.com/api/webhooks/123456/abcdef"
 
     # 3. Trigger test alert validation (fails gracefully against dummy test URL without crashing)
     alert_resp = await async_client.post(
