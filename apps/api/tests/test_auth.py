@@ -294,3 +294,101 @@ async def test_password_reset_flow(async_client: AsyncClient):
     assert revoked_me.status_code == 401
     assert "Session has been revoked" in revoked_me.json()["detail"]
 
+
+@pytest.mark.asyncio
+async def test_profile_update_and_change_password(async_client: AsyncClient):
+    """Verifies profile name updates, password changes, and subsequent token invalidation."""
+    ip = "192.168.10.15"
+    reg_resp = await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "operator.profile@company.com",
+            "password": "InitialPassword123!",
+            "full_name": "Original Name",
+        },
+        headers={"X-Forwarded-For": ip},
+    )
+    assert reg_resp.status_code == 201
+    token = reg_resp.json()["access_token"]
+
+    # 1. Update profile full name
+    patch_resp = await async_client.patch(
+        "/api/v1/auth/profile",
+        json={"full_name": "Updated Senior Operator"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["full_name"] == "Updated Senior Operator"
+
+    # 2. Change password with incorrect current password fails
+    bad_change = await async_client.post(
+        "/api/v1/auth/change-password",
+        json={
+            "current_password": "WrongPassword!",
+            "new_password": "UpdatedPassword456!",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert bad_change.status_code == 400
+    assert "Current password is incorrect" in bad_change.json()["detail"]
+
+    # 3. Valid password change succeeds and returns new JWT
+    good_change = await async_client.post(
+        "/api/v1/auth/change-password",
+        json={
+            "current_password": "InitialPassword123!",
+            "new_password": "UpdatedPassword456!",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert good_change.status_code == 200
+    new_token = good_change.json()["access_token"]
+    assert new_token != token
+
+    # 4. Old token is now revoked
+    old_me = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert old_me.status_code == 401
+
+    # 5. New token works
+    new_me = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {new_token}"},
+    )
+    assert new_me.status_code == 200
+    assert new_me.json()["full_name"] == "Updated Senior Operator"
+
+
+@pytest.mark.asyncio
+async def test_revoke_all_sessions(async_client: AsyncClient):
+    """Verifies that the global session kill-switch invalidates active tokens."""
+    ip = "192.168.10.16"
+    reg_resp = await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "killswitch.user@company.com",
+            "password": "SecurePassword123!",
+        },
+        headers={"X-Forwarded-For": ip},
+    )
+    assert reg_resp.status_code == 201
+    token = reg_resp.json()["access_token"]
+
+    # Call revoke all sessions
+    revoke_resp = await async_client.post(
+        "/api/v1/auth/revoke-all-sessions",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert revoke_resp.status_code == 200
+    assert "invalidated" in revoke_resp.json()["message"]
+
+    # Subsequent request using that token is 401 Unauthorized
+    me_resp = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_resp.status_code == 401
+    assert "Session has been revoked" in me_resp.json()["detail"]
+

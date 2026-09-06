@@ -442,6 +442,28 @@ export async function resetPassword(token: string, newPassword: string): Promise
   return res.json();
 }
 
+export async function updateUserProfile(data: { full_name?: string }): Promise<User> {
+  return apiFetch<User>("/api/v1/auth/profile", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<AuthResponse> {
+  const res = await apiFetch<AuthResponse>("/api/v1/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  setStoredToken(res.access_token, res.refresh_token);
+  return res;
+}
+
+export async function revokeAllSessions(): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/api/v1/auth/revoke-all-sessions", {
+    method: "POST",
+  });
+}
+
 export interface OrganizationSettings {
   id: string;
   name: string;

@@ -104,3 +104,12 @@ class ResetPasswordRequest(BaseModel):
 class MessageResponse(BaseModel):
     message: str
 
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = Field(None, max_length=100)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
+

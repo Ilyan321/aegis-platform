@@ -12,6 +12,7 @@ import {
   Activity,
   Bell,
   Terminal,
+  User,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -26,6 +27,7 @@ interface NavbarProps {
   activeOrgName?: string;
   onOpenAlertSettings?: () => void;
   onOpenCliAuth?: () => void;
+  onOpenAccountSettings?: () => void;
 }
 
 export function Navbar({
@@ -37,6 +39,7 @@ export function Navbar({
   activeOrgName,
   onOpenAlertSettings,
   onOpenCliAuth,
+  onOpenAccountSettings,
 }: NavbarProps) {
   const { user, loading, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -216,6 +219,20 @@ export function Navbar({
 
                   {/* Actions */}
                   <div className="pt-2 space-y-1">
+                    {onOpenAccountSettings && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          onOpenAccountSettings();
+                        }}
+                        className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                      >
+                        <User className="w-3.5 h-3.5 text-primary" />
+                        <span>Account & Security</span>
+                      </button>
+                    )}
+
                     {onOpenAlertSettings && (
                       <button
                         type="button"

@@ -14,6 +14,7 @@ import { RepositoriesView } from "@/components/RepositoriesView";
 import { ScansView } from "@/components/ScansView";
 import { AlertSettingsModal } from "@/components/AlertSettingsModal";
 import { CliAuthModal } from "@/components/CliAuthModal";
+import { AccountSettingsModal } from "@/components/AccountSettingsModal";
 import { Shield, GitFork, Activity, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -84,6 +85,7 @@ export default function DashboardPage() {
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isAlertSettingsOpen, setIsAlertSettingsOpen] = useState(false);
   const [isCliAuthOpen, setIsCliAuthOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
 
   // Load Dashboard Data scoped to active user
   const loadDashboardData = useCallback(async (orgId?: string | null) => {
@@ -279,6 +281,7 @@ export default function DashboardPage() {
         activeOrgName={activeOrgName}
         onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
         onOpenCliAuth={() => setIsCliAuthOpen(true)}
+        onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
       />
 
       {/* Main Content Container with Breathable 8pt Spacing */}
@@ -517,6 +520,7 @@ export default function DashboardPage() {
         onRefresh={handleRefresh}
         onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
         onOpenCliAuth={() => setIsCliAuthOpen(true)}
+        onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
       />
 
       {/* Alert Settings & Integration Modal */}
@@ -529,6 +533,12 @@ export default function DashboardPage() {
       <CliAuthModal
         isOpen={isCliAuthOpen}
         onClose={() => setIsCliAuthOpen(false)}
+      />
+
+      {/* Account & Security Settings Modal */}
+      <AccountSettingsModal
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
       />
     </div>
   );

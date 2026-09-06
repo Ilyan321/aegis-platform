@@ -54,14 +54,15 @@ def base64url_decode(data: str) -> bytes:
 
 def create_access_token(user_id: str, email: str, expires_delta: Optional[timedelta] = None) -> str:
     """Creates an RFC 7519 standard HMAC-SHA256 signed JWT access token (default 15m)."""
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=15))
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "sub": str(user_id),
         "email": email,
         "type": "access",
         "exp": int(expire.timestamp()),
-        "iat": int(datetime.now(timezone.utc).timestamp()),
+        "iat": round(now.timestamp(), 4),
     }
 
     header_b64 = base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
@@ -77,7 +78,8 @@ def create_access_token(user_id: str, email: str, expires_delta: Optional[timede
 
 def create_refresh_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
     """Creates an RFC 7519 HMAC-SHA256 signed refresh token (default 7 days) with unique jti."""
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=7))
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(days=7))
     header = {"alg": "HS256", "typ": "JWT"}
     jti = secrets.token_hex(16)
     payload = {
@@ -85,7 +87,7 @@ def create_refresh_token(user_id: str, expires_delta: Optional[timedelta] = None
         "type": "refresh",
         "jti": jti,
         "exp": int(expire.timestamp()),
-        "iat": int(datetime.now(timezone.utc).timestamp()),
+        "iat": round(now.timestamp(), 4),
     }
 
     header_b64 = base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))

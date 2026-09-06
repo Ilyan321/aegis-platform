@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { Command } from "cmdk";
-import { Search, ShieldAlert, Shield, GitFork, AlertCircle, Plus, X, Activity, RefreshCw, Bell, Terminal } from "lucide-react";
+import { Search, ShieldAlert, Shield, GitFork, AlertCircle, Plus, X, Activity, RefreshCw, Bell, Terminal, User } from "lucide-react";
 import { Incident, Repository } from "@/lib/api";
 
 interface CommandMenuProps {
@@ -18,6 +18,7 @@ interface CommandMenuProps {
   onRefresh?: () => void;
   onOpenAlertSettings?: () => void;
   onOpenCliAuth?: () => void;
+  onOpenAccountSettings?: () => void;
 }
 
 export function CommandMenu({
@@ -33,6 +34,7 @@ export function CommandMenu({
   onRefresh,
   onOpenAlertSettings,
   onOpenCliAuth,
+  onOpenAccountSettings,
 }: CommandMenuProps) {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -158,6 +160,18 @@ export function CommandMenu({
                 <ShieldAlert className="w-4 h-4 text-primary" />
                 <span>Filter Critical Incidents</span>
               </Command.Item>
+              {onOpenAccountSettings && (
+                <Command.Item
+                  onSelect={() => {
+                    onOpenAccountSettings();
+                    onClose();
+                  }}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+                >
+                  <User className="w-4 h-4 text-primary" />
+                  <span>Manage Account & Security Settings...</span>
+                </Command.Item>
+              )}
               {onOpenAlertSettings && (
                 <Command.Item
                   onSelect={() => {

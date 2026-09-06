@@ -24,12 +24,14 @@ from app.core.security import (
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.auth import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     MessageResponse,
     ResendOtpRequest,
     ResetPasswordRequest,
     TokenRefreshRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
@@ -268,6 +270,88 @@ async def get_me(
     resp = UserResponse.model_validate(current_user)
     resp.has_github_token = bool(current_user.github_access_token)
     return resp
+
+
+@router.patch(
+    "/profile",
+    response_model=UserResponse,
+    summary="Update authenticated user profile information",
+)
+async def update_profile(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    if data.full_name is not None:
+        current_user.full_name = data.full_name.strip() if data.full_name.strip() else None
+    await db.commit()
+    await db.refresh(current_user)
+    resp = UserResponse.model_validate(current_user)
+    resp.has_github_token = bool(current_user.github_access_token)
+    logger.info(f"User {current_user.email} updated profile full_name='{current_user.full_name}'")
+    return resp
+
+
+@router.post(
+    "/change-password",
+    response_model=TokenResponse,
+    summary="Change account password and re-issue credentials",
+)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    # 1. Check if user registered via local password authentication
+    if not current_user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"This account was registered using {current_user.provider.capitalize()}. Direct password change is not available.",
+        )
+
+    # 2. Verify current password in constant time
+    if not verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect. Please verify your credentials.",
+        )
+
+    # 3. Update hashed password
+    current_user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+    await db.refresh(current_user)
+
+    # 4. Invalidate prior active sessions to protect against hijacked devices
+    await SessionTokenManager.revoke_user_sessions(current_user.id)
+
+    # 5. Issue fresh JWT token pair for current session
+    token = create_access_token(user_id=str(current_user.id), email=current_user.email)
+    refresh_token = create_refresh_token(user_id=str(current_user.id))
+
+    logger.info(f"User {current_user.email} updated account password. Prior sessions revoked.")
+    resp = UserResponse.model_validate(current_user)
+    resp.has_github_token = bool(current_user.github_access_token)
+    return TokenResponse(
+        access_token=token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=resp,
+    )
+
+
+@router.post(
+    "/revoke-all-sessions",
+    response_model=MessageResponse,
+    summary="Revoke all active sessions and refresh tokens across devices",
+)
+async def revoke_all_sessions(
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    await SessionTokenManager.revoke_user_sessions(current_user.id)
+    logger.info(f"User {current_user.email} initiated global session revocation.")
+    return MessageResponse(
+        message="All active sessions and tokens have been invalidated. Please sign in again."
+    )
 
 
 @router.post(
