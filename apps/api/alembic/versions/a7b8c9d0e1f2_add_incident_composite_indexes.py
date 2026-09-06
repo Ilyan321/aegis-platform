@@ -19,30 +19,38 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        'ix_incidents_repo_status_last_seen',
-        'incidents',
-        ['repository_id', 'status', 'last_seen_at'],
-        unique=False
-    )
-    op.create_index(
-        'ix_incidents_status_severity_last_seen',
-        'incidents',
-        ['status', 'severity', 'last_seen_at'],
-        unique=False
-    )
-    op.create_index(
-        'ix_incidents_verification_status',
-        'incidents',
-        ['verification_status'],
-        unique=False
-    )
-    op.create_index(
-        'ix_incidents_last_seen_at',
-        'incidents',
-        ['last_seen_at'],
-        unique=False
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    existing_indexes = [idx['name'] for idx in inspector.get_indexes('incidents')]
+
+    if 'ix_incidents_repo_status_last_seen' not in existing_indexes:
+        op.create_index(
+            'ix_incidents_repo_status_last_seen',
+            'incidents',
+            ['repository_id', 'status', 'last_seen_at'],
+            unique=False
+        )
+    if 'ix_incidents_status_severity_last_seen' not in existing_indexes:
+        op.create_index(
+            'ix_incidents_status_severity_last_seen',
+            'incidents',
+            ['status', 'severity', 'last_seen_at'],
+            unique=False
+        )
+    if 'ix_incidents_verification_status' not in existing_indexes:
+        op.create_index(
+            'ix_incidents_verification_status',
+            'incidents',
+            ['verification_status'],
+            unique=False
+        )
+    if 'ix_incidents_last_seen_at' not in existing_indexes:
+        op.create_index(
+            'ix_incidents_last_seen_at',
+            'incidents',
+            ['last_seen_at'],
+            unique=False
+        )
 
 
 def downgrade() -> None:

@@ -19,10 +19,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        'users',
-        sa.Column('is_verified', sa.Boolean(), server_default='false', nullable=False)
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    cols = [c['name'] for c in inspector.get_columns('users')]
+    if 'is_verified' not in cols:
+        op.add_column(
+            'users',
+            sa.Column('is_verified', sa.Boolean(), server_default='false', nullable=False)
+        )
 
 
 def downgrade() -> None:

@@ -19,21 +19,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    org_cols = [c['name'] for c in inspector.get_columns('organizations')]
+
     # 1. Add alert webhook URLs to organizations
-    op.add_column(
-        'organizations',
-        sa.Column('slack_webhook_url', sa.String(length=512), nullable=True)
-    )
-    op.add_column(
-        'organizations',
-        sa.Column('discord_webhook_url', sa.String(length=512), nullable=True)
-    )
+    if 'slack_webhook_url' not in org_cols:
+        op.add_column(
+            'organizations',
+            sa.Column('slack_webhook_url', sa.String(length=512), nullable=True)
+        )
+    if 'discord_webhook_url' not in org_cols:
+        op.add_column(
+            'organizations',
+            sa.Column('discord_webhook_url', sa.String(length=512), nullable=True)
+        )
 
     # 2. Add webhook_installed to repositories
-    op.add_column(
-        'repositories',
-        sa.Column('webhook_installed', sa.Boolean(), server_default='false', nullable=False)
-    )
+    repo_cols = [c['name'] for c in inspector.get_columns('repositories')]
+    if 'webhook_installed' not in repo_cols:
+        op.add_column(
+            'repositories',
+            sa.Column('webhook_installed', sa.Boolean(), server_default='false', nullable=False)
+        )
 
 
 def downgrade() -> None:
