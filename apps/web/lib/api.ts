@@ -75,12 +75,25 @@ export interface TelemetryData {
   recent_scans: ScanRun[];
 }
 
+export function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes("ilyankhan.tech")) {
+      return "https://aegis-api.ilyankhan.tech";
+    }
+    if (host.includes("vercel.app")) {
+      return process.env.NEXT_PUBLIC_API_URL || "https://aegis-platform-wwgp.onrender.com";
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function getOAuthUrl(provider: "github" | "google", mode: "login" | "signup" = "login"): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const param = origin ? `&redirect_to=${encodeURIComponent(origin)}` : "";
-  return `${API_BASE}/api/v1/auth/${provider}?mode=${mode}${param}`;
+  return `${getApiBase()}/api/v1/auth/${provider}?mode=${mode}${param}`;
 }
 
 export async function apiFetch<T>(
@@ -96,7 +109,7 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  const res = await fetch(`${getApiBase()}${endpoint}`, {
     ...options,
     headers,
     cache: "no-store",
@@ -321,7 +334,7 @@ export async function refreshSession(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    const res = await fetch(`${getApiBase()}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -346,7 +359,7 @@ export async function logoutUser(): Promise<void> {
   const token = getStoredToken();
   try {
     if (refreshToken || token) {
-      await fetch(`${API_BASE}/api/v1/auth/logout`, {
+      await fetch(`${getApiBase()}/api/v1/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -364,7 +377,7 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+  const res = await fetch(`${getApiBase()}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -379,7 +392,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
 }
 
 export async function registerUser(email: string, password: string, fullName?: string): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+  const res = await fetch(`${getApiBase()}/api/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, full_name: fullName || undefined }),
@@ -414,7 +427,7 @@ export async function fetchCurrentUser(): Promise<User | null> {
 }
 
 export async function verifyEmail(email: string, otp: string): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/verify-email`, {
+  const res = await fetch(`${getApiBase()}/api/v1/auth/verify-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, otp }),
@@ -429,7 +442,7 @@ export async function verifyEmail(email: string, otp: string): Promise<AuthRespo
 }
 
 export async function resendOtp(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/resend-otp`, {
+  const res = await fetch(`${getApiBase()}/api/v1/auth/resend-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -442,7 +455,7 @@ export async function resendOtp(email: string): Promise<{ message: string }> {
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
+  const res = await fetch(`${getApiBase()}/api/v1/auth/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -455,7 +468,7 @@ export async function forgotPassword(email: string): Promise<{ message: string }
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/reset-password`, {
+  const res = await fetch(`${getApiBase()}/api/v1/auth/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, new_password: newPassword }),
