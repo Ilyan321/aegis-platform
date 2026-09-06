@@ -27,7 +27,7 @@ services:
       - key: FRONTEND_URL
         value: https://aegis-platform-web.vercel.app
       - key: BACKEND_URL
-        sync: false
+        value: https://aegis-platform-wwgp.onrender.com
       - key: GITHUB_CLIENT_ID
         sync: false
       - key: GITHUB_CLIENT_SECRET
