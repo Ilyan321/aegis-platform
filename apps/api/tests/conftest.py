@@ -85,6 +85,7 @@ async def test_user_data(db_session: AsyncSession):
         organization_id=org.id,
         provider="local",
         is_active=True,
+        is_verified=True,
     )
     db_session.add(user)
     await db_session.commit()

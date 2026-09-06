@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     provider: str
     organization_id: Optional[UUID] = None
     has_github_token: bool = False
+    is_verified: bool = False
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -54,3 +55,52 @@ class TokenResponse(BaseModel):
 
 class TokenRefreshRequest(BaseModel):
     refresh_token: str
+
+
+class VerifyEmailRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+    otp: str = Field(..., min_length=6, max_length=6)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("otp")
+    @classmethod
+    def validate_otp(cls, v: str) -> str:
+        clean = v.strip()
+        if not clean.isdigit():
+            raise ValueError("Verification code must be exactly 6 numeric digits")
+        return clean
+
+
+class ResendOtpRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        clean = v.strip().lower()
+        if not EMAIL_REGEX.match(clean):
+            raise ValueError("Invalid email address format")
+        return clean
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=16, max_length=255)
+    new_password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
+
+
+class MessageResponse(BaseModel):
+    message: str
+

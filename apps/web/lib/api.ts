@@ -242,6 +242,7 @@ export interface User {
   provider: string;
   organization_id?: string | null;
   has_github_token?: boolean;
+  is_verified?: boolean;
   created_at: string;
 }
 
@@ -374,3 +375,58 @@ export async function fetchCurrentUser(): Promise<User | null> {
   }
   return res.json();
 }
+
+export async function verifyEmail(email: string, otp: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Email verification failed");
+  }
+  const data: AuthResponse = await res.json();
+  setStoredToken(data.access_token, data.refresh_token);
+  return data;
+}
+
+export async function resendOtp(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/resend-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Failed to resend verification code");
+  }
+  return res.json();
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Password recovery request failed");
+  }
+  return res.json();
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Password reset failed");
+  }
+  return res.json();
+}
+

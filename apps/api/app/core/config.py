@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # Notifications
     SLACK_WEBHOOK_URL: str = ""
 
+    # Email / Resend
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "Aegis Security <onboarding@resend.dev>"
+
     # Webhook defaults
     WEBHOOK_SECRET_DEFAULT: str = "aegis-default-webhook-secret"
 

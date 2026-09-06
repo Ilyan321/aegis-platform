@@ -140,3 +140,157 @@ async def test_logout_invalidates_session(async_client: AsyncClient):
         json={"refresh_token": refresh_token},
     )
     assert refresh_resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_verify_email_flow(async_client: AsyncClient):
+    """Verify registration dispatches OTP and /verify-email activates the account."""
+    from app.services.auth_tokens import EmailVerificationManager
+
+    user_email = "verify_test@enterprise.org"
+    ip = "192.168.2.50"
+    reg_resp = await async_client.post(
+        "/api/v1/auth/register",
+        json={"email": user_email, "password": "SecurePassword123!", "full_name": "Verify User"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert reg_resp.status_code == 201
+    reg_data = reg_resp.json()
+    assert reg_data["user"]["is_verified"] is False
+
+    # Get OTP from manager (either redis or in-memory)
+    # Re-generate or inspect stored code
+    stored_otp = None
+    if user_email in EmailVerificationManager._memory_otps:
+        stored_otp = EmailVerificationManager._memory_otps[user_email]["otp"]
+    else:
+        # Generate fresh OTP
+        stored_otp = await EmailVerificationManager.generate_and_store_otp(user_email)
+
+    # 1. Invalid OTP should fail
+    bad_resp = await async_client.post(
+        "/api/v1/auth/verify-email",
+        json={"email": user_email, "otp": "000000"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert bad_resp.status_code == 400
+
+    # 2. Valid OTP should succeed and mark is_verified=True
+    good_resp = await async_client.post(
+        "/api/v1/auth/verify-email",
+        json={"email": user_email, "otp": stored_otp},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert good_resp.status_code == 200
+    good_data = good_resp.json()
+    assert good_data["user"]["is_verified"] is True
+    assert "access_token" in good_data
+
+
+@pytest.mark.asyncio
+async def test_resend_otp_and_cooldown(async_client: AsyncClient):
+    """Verify resend OTP endpoint respects cooldown."""
+    user_email = "cooldown_test@enterprise.org"
+    ip = "192.168.3.50"
+    await async_client.post(
+        "/api/v1/auth/register",
+        json={"email": user_email, "password": "SecurePassword123!", "full_name": "Cooldown User"},
+        headers={"X-Forwarded-For": ip},
+    )
+
+    # First resend immediate attempt is blocked by 60s cooldown from registration
+    resend_resp = await async_client.post(
+        "/api/v1/auth/resend-otp",
+        json={"email": user_email},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert resend_resp.status_code == 429
+    assert "Please wait" in resend_resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_password_reset_flow(async_client: AsyncClient):
+    """Verify forgot password link generation, token consumption, password update, and session revocation."""
+    from app.services.auth_tokens import PasswordResetTokenManager
+
+    user_email = "reset_test@enterprise.org"
+    ip = "192.168.4.50"
+    # Register user
+    reg_resp = await async_client.post(
+        "/api/v1/auth/register",
+        json={"email": user_email, "password": "OldPassword123!", "full_name": "Reset User"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert reg_resp.status_code == 201
+    old_access_token = reg_resp.json()["access_token"]
+    user_id = reg_resp.json()["user"]["id"]
+
+    # 1. Non-existent email returns 200 (anti-enumeration)
+    anon_resp = await async_client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": "nonexistent@company.com"},
+        headers={"X-Forwarded-For": "192.168.4.51"},
+    )
+    assert anon_resp.status_code == 200
+
+    # 2. Existing user forgot-password returns 200
+    forgot_resp = await async_client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": user_email},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert forgot_resp.status_code == 200
+
+    # 3. Create/retrieve reset token
+    token = await PasswordResetTokenManager.create_reset_token(user_id=user_id, email=user_email)
+
+    # 4. Invalid token fails
+    bad_token_resp = await async_client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": "invalid-token-value-12345", "new_password": "NewSecurePassword456!"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert bad_token_resp.status_code == 400
+
+    # 5. Valid reset-password succeeds
+    reset_resp = await async_client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": token, "new_password": "NewSecurePassword456!"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert reset_resp.status_code == 200
+    assert "successfully updated" in reset_resp.json()["message"]
+
+    # 6. Reusing same token fails immediately (single-use)
+    reuse_resp = await async_client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": token, "new_password": "AnotherPassword789!"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert reuse_resp.status_code == 400
+
+    # 7. Old password no longer works
+    old_login = await async_client.post(
+        "/api/v1/auth/login",
+        json={"email": user_email, "password": "OldPassword123!"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert old_login.status_code == 401
+
+    # 8. New password works
+    new_login = await async_client.post(
+        "/api/v1/auth/login",
+        json={"email": user_email, "password": "NewSecurePassword456!"},
+        headers={"X-Forwarded-For": ip},
+    )
+    assert new_login.status_code == 200
+    assert "access_token" in new_login.json()
+
+    # 9. Previous session token is revoked
+    revoked_me = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {old_access_token}"},
+    )
+    assert revoked_me.status_code == 401
+    assert "Session has been revoked" in revoked_me.json()["detail"]
+

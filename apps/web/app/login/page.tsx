@@ -154,6 +154,12 @@ function LoginForm() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-heading">Password</label>
+              <Link
+                href="/reset-password"
+                className="text-[11px] text-muted hover:text-heading transition-colors"
+              >
+                Forgot password?
+              </Link>
             </div>
             <div className="relative">
               <input

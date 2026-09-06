@@ -39,7 +39,7 @@ function SignupForm() {
 
     try {
       await register(email.trim(), password, fullName.trim());
-      router.push("/");
+      router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

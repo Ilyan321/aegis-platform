@@ -23,17 +23,26 @@ from app.core.security import (
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.auth import (
+    ForgotPasswordRequest,
+    MessageResponse,
+    ResendOtpRequest,
+    ResetPasswordRequest,
     TokenRefreshRequest,
     TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
+    VerifyEmailRequest,
 )
+from app.services.auth_tokens import EmailVerificationManager, PasswordResetTokenManager
+from app.services.email import EmailService
 
 router = APIRouter()
 logger = logging.getLogger("aegis.auth")
 login_limiter = RateLimiter(times=5, seconds=60)
 register_limiter = RateLimiter(times=5, seconds=900)
+forgot_password_limiter = RateLimiter(times=3, seconds=900)
+resend_otp_limiter = RateLimiter(times=3, seconds=300)
 DUMMY_PBKDF2_HASH = "pbkdf2:sha256:100000$00112233445566778899aabbccddeeff$00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
 
 
@@ -73,12 +82,20 @@ async def register(
         provider="local",
         organization_id=org.id,
         is_active=True,
+        is_verified=False,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
-    # 4. Generate JWT Pair
+    # 4. Generate and dispatch verification OTP
+    try:
+        otp = await EmailVerificationManager.generate_and_store_otp(user.email)
+        await EmailService.send_verification_otp(user.email, otp)
+    except Exception as exc:
+        logger.error(f"Failed to dispatch initial verification email to {user.email}: {exc}")
+
+    # 5. Generate JWT Pair
     token = create_access_token(user_id=str(user.id), email=user.email)
     refresh_token = create_refresh_token(user_id=str(user.id))
 
@@ -200,6 +217,9 @@ async def refresh_token(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject UUID")
 
+    if await SessionTokenManager.is_user_session_revoked(user_uuid, payload.get("iat")):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked. Please sign in again.")
+
     user = await db.get(User, user_uuid)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found or deactivated")
@@ -247,6 +267,158 @@ async def get_me(
     resp = UserResponse.model_validate(current_user)
     resp.has_github_token = bool(current_user.github_access_token)
     return resp
+
+
+@router.post(
+    "/verify-email",
+    response_model=TokenResponse,
+    summary="Verify user account using 6-digit email OTP",
+)
+async def verify_email(
+    data: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    clean_email = data.email.lower().strip()
+    stmt = select(User).where(User.email == clean_email)
+    user = (await db.execute(stmt)).scalars().first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found. Please verify the email address.",
+        )
+
+    if user.is_verified:
+        token = create_access_token(user_id=str(user.id), email=user.email)
+        refresh_token = create_refresh_token(user_id=str(user.id))
+        return TokenResponse(
+            access_token=token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user=UserResponse.model_validate(user),
+        )
+
+    is_valid = await EmailVerificationManager.verify_otp(clean_email, data.otp)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code. Please request a new one.",
+        )
+
+    user.is_verified = True
+    await db.commit()
+    await db.refresh(user)
+
+    token = create_access_token(user_id=str(user.id), email=user.email)
+    refresh_token = create_refresh_token(user_id=str(user.id))
+    logger.info(f"Successfully verified email for user: {user.email}")
+
+    return TokenResponse(
+        access_token=token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post(
+    "/resend-otp",
+    response_model=MessageResponse,
+    dependencies=[Depends(resend_otp_limiter)],
+    summary="Resend email verification OTP",
+)
+async def resend_otp(
+    data: ResendOtpRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    clean_email = data.email.lower().strip()
+    cooldown = await EmailVerificationManager.get_cooldown_remaining(clean_email)
+    if cooldown > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {cooldown} seconds before requesting another verification code.",
+            headers={"Retry-After": str(cooldown)},
+        )
+
+    stmt = select(User).where(User.email == clean_email)
+    user = (await db.execute(stmt)).scalars().first()
+    if user and not user.is_verified:
+        otp = await EmailVerificationManager.generate_and_store_otp(user.email)
+        await EmailService.send_verification_otp(user.email, otp)
+        logger.info(f"Dispatched new verification OTP to: {user.email}")
+
+    return MessageResponse(
+        message="If an unverified account exists with this email, a new verification code has been dispatched."
+    )
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    dependencies=[Depends(forgot_password_limiter)],
+    summary="Request a password reset link",
+)
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    clean_email = data.email.lower().strip()
+    stmt = select(User).where(User.email == clean_email)
+    user = (await db.execute(stmt)).scalars().first()
+
+    if user and user.is_active and user.hashed_password:
+        reset_token = await PasswordResetTokenManager.create_reset_token(str(user.id), user.email)
+        await EmailService.send_password_reset(user.email, reset_token)
+        logger.info(f"Dispatched password reset link for user: {user.email}")
+    else:
+        verify_password("timing_defense_attempt", DUMMY_PBKDF2_HASH)
+
+    return MessageResponse(
+        message="If an account exists with this email, a password reset link has been dispatched."
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+    summary="Reset account password using single-use reset token",
+)
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    payload = await PasswordResetTokenManager.consume_reset_token(data.token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid, expired, or previously used password reset token. Please request a new link.",
+        )
+
+    user_id_str = payload.get("user_id")
+    try:
+        user_uuid = uuid.UUID(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Malformed token payload.",
+        )
+
+    user = await db.get(User, user_uuid)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account associated with this token was not found or is deactivated.",
+        )
+
+    user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+
+    # Revoke all active sessions for this user
+    await SessionTokenManager.revoke_user_sessions(user.id)
+
+    logger.info(f"Password successfully reset for user: {user.email}")
+    return MessageResponse(
+        message="Password has been successfully updated. You may now log in with your new credentials."
+    )
 
 
 # ==========================================
@@ -375,6 +547,7 @@ async def github_callback(
                 provider_id=gh_id,
                 organization_id=org.id,
                 is_active=True,
+                is_verified=True,
             )
             user.set_github_token(gh_token)
             db.add(user)
@@ -555,6 +728,7 @@ async def google_callback(
                 provider_id=g_id,
                 organization_id=org.id,
                 is_active=True,
+                is_verified=True,
             )
             db.add(user)
 

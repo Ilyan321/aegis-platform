@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, fullName?: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,11 +18,21 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   register: async () => {},
   logout: () => {},
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshUser = async () => {
+    try {
+      const u = await fetchCurrentUser();
+      setUser(u);
+    } catch {
+      setUser(null);
+    }
+  };
 
   useEffect(() => {
     fetchCurrentUser()
@@ -46,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

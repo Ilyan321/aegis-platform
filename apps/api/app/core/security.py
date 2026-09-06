@@ -100,8 +100,9 @@ def create_refresh_token(user_id: str, expires_delta: Optional[timedelta] = None
 
 
 class SessionTokenManager:
-    """Manages refresh token invalidation, reuse detection, and session revocation."""
+    """Manages refresh token invalidation, reuse detection, and global session revocation."""
     _revoked_jtis: set = set()
+    _revoked_before: dict = {}
 
     @classmethod
     async def is_revoked(cls, jti: str) -> bool:
@@ -127,6 +128,42 @@ class SessionTokenManager:
                 await r.aclose()
             except Exception:
                 pass
+
+    @classmethod
+    async def revoke_user_sessions(cls, user_id: Any) -> None:
+        import time
+        uid = str(user_id)
+        now = time.time()
+        cls._revoked_before[uid] = now
+        if settings.REDIS_URL:
+            try:
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                await r.set(f"revoked_before:{uid}", str(now), ex=604800)
+                await r.aclose()
+            except Exception:
+                pass
+
+    @classmethod
+    async def is_user_session_revoked(cls, user_id: Any, iat: Optional[float]) -> bool:
+        if iat is None:
+            return False
+        uid = str(user_id)
+        if settings.REDIS_URL:
+            try:
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=0.2)
+                val = await r.get(f"revoked_before:{uid}")
+                await r.aclose()
+                if val:
+                    cutoff = float(val.decode("utf-8") if isinstance(val, bytes) else val)
+                    return iat < cutoff
+            except Exception:
+                pass
+        cutoff = cls._revoked_before.get(uid)
+        if cutoff is not None:
+            return iat < cutoff
+        return False
 
 
 def decode_access_token(token: str) -> Dict[str, Any]:
@@ -174,6 +211,9 @@ async def get_current_user(
         user_uuid = UUID(user_id_str)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user identifier format")
+
+    if await SessionTokenManager.is_user_session_revoked(user_uuid, payload.get("iat")):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked. Please sign in again.")
 
     stmt = select(User).where(User.id == user_uuid, User.is_active == True)
     result = await db.execute(stmt)
