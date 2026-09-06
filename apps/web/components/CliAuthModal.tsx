@@ -125,11 +125,39 @@ export function CliAuthModal({ isOpen, onClose }: CliAuthModalProps) {
             </div>
           ) : (
             <>
-              {/* Step 1: Login Command */}
+              {/* Step 1: Install CLI */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-heading flex items-center space-x-1.5">
                     <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">1</span>
+                    <span>Install Aegis CLI</span>
+                  </span>
+                  <span className="text-[10px] text-muted">macOS / Linux / WSL</span>
+                </div>
+                <div className="relative bg-canvas border border-subtle rounded-xl p-3 font-mono text-xs text-heading flex items-center justify-between group">
+                  <span className="truncate flex-1 text-[11px] pr-2">
+                    curl -sSL https://aegis.ilyankhan.tech/install.sh | bash
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyText("curl -sSL https://aegis.ilyankhan.tech/install.sh | bash", "Install command")}
+                    className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer"
+                    title="Copy command"
+                  >
+                    {copiedSection === "Install command" ? (
+                      <Check className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2: Login Command */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-heading flex items-center space-x-1.5">
+                    <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">2</span>
                     <span>Authenticate CLI</span>
                   </span>
                   <span className="text-[10px] text-muted">Valid for 30 days</span>
@@ -141,7 +169,7 @@ export function CliAuthModal({ isOpen, onClose }: CliAuthModalProps) {
                   <button
                     type="button"
                     onClick={() => copyText(loginCmd, "Login command")}
-                    className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0"
+                    className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer"
                     title="Copy command"
                   >
                     {copiedSection === "Login command" ? (
@@ -153,11 +181,11 @@ export function CliAuthModal({ isOpen, onClose }: CliAuthModalProps) {
                 </div>
               </div>
 
-              {/* Step 2: Scan & Cloud Sync */}
+              {/* Step 3: Scan & Cloud Sync */}
               <div className="space-y-1.5 pt-1">
                 <span className="text-xs font-semibold text-heading flex items-center space-x-1.5">
-                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">2</span>
-                  <span>Run Scan with Cloud Sync</span>
+                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">3</span>
+                  <span>Run Scan & Pre-Commit Hook</span>
                 </span>
                 <div className="relative bg-canvas border border-subtle rounded-xl p-3 font-mono text-xs text-heading flex items-center justify-between group">
                   <span className="truncate flex-1 text-[11px] pr-2">
