@@ -59,6 +59,19 @@ export function WebhookSetupModal({
     }
   }, [isOpen, repository]);
 
+  // Keyboard dismiss (Escape)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !repository) return null;
 
   const copyToClipboard = (text: string, label: string) => {
@@ -104,11 +117,14 @@ export function WebhookSetupModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/50 cursor-pointer animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150"
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="webhook-modal-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col cursor-default"
+        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-modal flex flex-col cursor-default"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle bg-canvas shrink-0">
@@ -118,7 +134,7 @@ export function WebhookSetupModal({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="font-semibold text-heading text-base">{repository.full_name}</h3>
+                <h3 id="webhook-modal-title" className="font-semibold text-heading text-base">{repository.full_name}</h3>
                 {config?.webhook_installed ? (
                   <span className="inline-flex items-center space-x-1 text-[10px] font-semibold bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded-full">
                     <Check className="w-3 h-3" />

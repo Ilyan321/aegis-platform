@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, KeyRound, Eye, EyeOff, CheckCircle2, ShieldAlert } from "lucide-react";
@@ -25,6 +25,16 @@ function ResetPasswordForm() {
       setToken(t);
     }
   }, [searchParams]);
+
+  const passwordStrength = useMemo(() => {
+    if (!newPassword) return { score: 0, label: "" };
+    let s = 0;
+    if (newPassword.length >= 8) s += 1;
+    if (/[0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) s += 1;
+    if (newPassword.length >= 12 || (/[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword) && s >= 2)) s += 1;
+    const labels = ["", "Weak", "Fair", "Strong"];
+    return { score: s, label: labels[s] };
+  }, [newPassword]);
 
   // Request Reset Link Mode
   const handleRequestReset = async (e: React.FormEvent) => {
@@ -121,7 +131,11 @@ function ResetPasswordForm() {
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 bg-canvas border border-red-500/30 text-red-500 text-xs rounded-xl p-3.5 text-center flex items-center justify-center space-x-2">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-6 bg-canvas border border-red-500/30 text-red-500 text-xs rounded-xl p-3.5 text-center flex items-center justify-center space-x-2"
+          >
             <ShieldAlert className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -138,7 +152,7 @@ function ResetPasswordForm() {
             </p>
             <Link
               href="/login"
-              className="w-full inline-flex justify-center py-2.5 px-4 bg-primary text-primary-fg hover:opacity-90 rounded-xl text-xs font-medium transition-all shadow-sm"
+              className="w-full inline-flex justify-center py-2.5 px-4 bg-primary text-surface hover:opacity-90 rounded-xl text-xs font-medium transition-all shadow-sm"
             >
               Sign In with New Password
             </Link>
@@ -151,7 +165,7 @@ function ResetPasswordForm() {
             <p className="text-xs text-muted leading-relaxed">{successMessage}</p>
             <Link
               href="/login"
-              className="w-full inline-flex justify-center py-2.5 px-4 bg-primary text-primary-fg hover:opacity-90 rounded-xl text-xs font-medium transition-all shadow-sm"
+              className="w-full inline-flex justify-center py-2.5 px-4 bg-primary text-surface hover:opacity-90 rounded-xl text-xs font-medium transition-all shadow-sm"
             >
               Return to Sign In
             </Link>
@@ -160,11 +174,12 @@ function ResetPasswordForm() {
           /* Form: Set New Password */
           <form onSubmit={handlePerformReset} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-heading block mb-1.5">
+              <label htmlFor="reset-new-password" className="text-xs font-medium text-heading block mb-1.5">
                 New Password
               </label>
               <div className="relative">
                 <input
+                  id="reset-new-password"
                   type={showPassword ? "text" : "password"}
                   required
                   autoComplete="new-password"
@@ -182,13 +197,51 @@ function ResetPasswordForm() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Password Strength */}
+              {newPassword.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-muted">Password Strength</span>
+                    <span
+                      className={`font-semibold ${
+                        passwordStrength.score === 1
+                          ? "text-amber-600"
+                          : passwordStrength.score === 2
+                          ? "text-interactive"
+                          : "text-primary"
+                      }`}
+                    >
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 h-1">
+                    <div
+                      className={`rounded-full transition-colors ${
+                        passwordStrength.score >= 1 ? "bg-amber-500" : "bg-subtle"
+                      }`}
+                    />
+                    <div
+                      className={`rounded-full transition-colors ${
+                        passwordStrength.score >= 2 ? "bg-interactive" : "bg-subtle"
+                      }`}
+                    />
+                    <div
+                      className={`rounded-full transition-colors ${
+                        passwordStrength.score >= 3 ? "bg-primary" : "bg-subtle"
+                      }`}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="text-xs font-medium text-heading block mb-1.5">
+              <label htmlFor="reset-confirm-password" className="text-xs font-medium text-heading block mb-1.5">
                 Confirm New Password
               </label>
               <input
+                id="reset-confirm-password"
                 type={showPassword ? "text" : "password"}
                 required
                 autoComplete="new-password"
@@ -202,10 +255,10 @@ function ResetPasswordForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-primary text-primary-fg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xs font-medium transition-all shadow-sm flex items-center justify-center space-x-2"
+              className="w-full py-2.5 px-4 bg-primary text-surface hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center justify-center space-x-2 cursor-pointer"
             >
               {loading ? (
-                <div className="w-4 h-4 border-2 border-primary-fg/20 border-t-primary-fg rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-surface/20 border-t-surface rounded-full animate-spin" />
               ) : (
                 <span>Update Password</span>
               )}
@@ -215,10 +268,11 @@ function ResetPasswordForm() {
           /* Form: Request Reset Link */
           <form onSubmit={handleRequestReset} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-heading block mb-1.5">
+              <label htmlFor="reset-email" className="text-xs font-medium text-heading block mb-1.5">
                 Work Email
               </label>
               <input
+                id="reset-email"
                 type="email"
                 required
                 autoComplete="email"

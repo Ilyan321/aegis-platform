@@ -350,16 +350,24 @@ export function IncidentTable({
                     {!isResolved ? (
                       <div className="flex items-center justify-end space-x-2">
                         <button
-                          onClick={() => onTriageStatus(inc.id, "RESOLVED")}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTriageStatus(inc.id, "RESOLVED");
+                          }}
                           title="Mark Resolved"
-                          className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded font-medium transition-colors"
+                          className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded font-medium transition-colors cursor-pointer"
                         >
                           Resolve
                         </button>
                         <button
-                          onClick={() => onTriageStatus(inc.id, "DISMISSED")}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTriageStatus(inc.id, "DISMISSED");
+                          }}
                           title="Dismiss as False Positive"
-                          className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded transition-colors"
+                          className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded transition-colors cursor-pointer"
                         >
                           Dismiss
                         </button>

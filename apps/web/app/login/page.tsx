@@ -17,11 +17,16 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
   useEffect(() => {
     const err = searchParams.get("error");
     if (err) {
       setError(decodeURIComponent(err));
+    }
+    const reason = searchParams.get("reason");
+    if (reason === "session_expired") {
+      setSessionExpiredNotice(true);
     }
   }, [searchParams]);
 
@@ -32,7 +37,9 @@ function LoginForm() {
 
     try {
       await login(email.trim(), password);
-      router.push("/");
+      const nextParam = searchParams.get("next");
+      const destination = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
+      router.push(destination);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -130,17 +137,33 @@ function LoginForm() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {sessionExpiredNotice && !error && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="bg-canvas border border-subtle text-heading text-xs rounded-xl p-3.5 flex items-center space-x-2.5"
+            >
+              <div className="w-2 h-2 rounded-full bg-interactive shrink-0" />
+              <span>Your session expired due to inactivity. Please sign in to resume.</span>
+            </div>
+          )}
+
           {error && (
-            <div className="bg-canvas border border-interactive text-heading text-xs rounded-xl p-3">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="bg-canvas border border-interactive text-heading text-xs rounded-xl p-3"
+            >
               {error}
             </div>
           )}
 
           <div>
-            <label className="text-xs font-medium text-heading block mb-1.5">
+            <label htmlFor="login-email" className="text-xs font-medium text-heading block mb-1.5">
               Work Email
             </label>
             <input
+              id="login-email"
               type="email"
               required
               autoComplete="email"
@@ -153,7 +176,7 @@ function LoginForm() {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-heading">Password</label>
+              <label htmlFor="login-password" className="text-xs font-medium text-heading">Password</label>
               <Link
                 href="/reset-password"
                 className="text-[11px] text-muted hover:text-heading transition-colors"
@@ -163,6 +186,7 @@ function LoginForm() {
             </div>
             <div className="relative">
               <input
+                id="login-password"
                 type={showPassword ? "text" : "password"}
                 required
                 autoComplete="current-password"

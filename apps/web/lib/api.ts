@@ -370,17 +370,22 @@ export async function registerUser(email: string, password: string, fullName?: s
 
 export async function fetchCurrentUser(): Promise<User | null> {
   const token = getStoredToken();
-  if (!token) return null;
+  if (!token) {
+    const refreshToken = getStoredRefreshToken();
+    if (refreshToken) {
+      const refreshed = await refreshSession();
+      if (!refreshed) return null;
+    } else {
+      return null;
+    }
+  }
 
-  const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!res.ok) {
+  try {
+    return await apiFetch<User>("/api/v1/auth/me");
+  } catch {
     removeStoredToken();
     return null;
   }
-  return res.json();
 }
 
 export async function verifyEmail(email: string, otp: string): Promise<AuthResponse> {

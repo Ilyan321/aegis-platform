@@ -33,6 +33,19 @@ export function IncidentDetailModal({
     }
   }, [incident]);
 
+  // Keyboard dismiss (Escape)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    if (incident) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [incident, onClose]);
+
   if (!incident) return null;
 
   const handleAction = async (newStatus: "RESOLVED" | "DISMISSED" | "OPEN") => {
@@ -70,11 +83,14 @@ export function IncidentDetailModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 backdrop-blur-xs cursor-pointer"
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="incident-detail-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 cursor-default"
+        className="bg-surface border border-subtle rounded-xl w-full max-w-2xl overflow-hidden shadow-modal animate-in fade-in zoom-in-95 duration-150 cursor-default"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-subtle bg-canvas">
@@ -84,7 +100,7 @@ export function IncidentDetailModal({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-semibold text-heading text-base">{incident.rule_name}</span>
+                <span id="incident-detail-title" className="font-semibold text-heading text-base">{incident.rule_name}</span>
                 <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-surface border-subtle text-heading">
                   {incident.severity}
                 </span>
@@ -96,8 +112,10 @@ export function IncidentDetailModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-surface hover:bg-subtle border border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors"
+            aria-label="Close dialog"
+            className="w-8 h-8 rounded-lg bg-surface hover:bg-subtle border border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

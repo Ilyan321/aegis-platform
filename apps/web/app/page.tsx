@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar, DashboardView } from "@/components/Navbar";
 import { TelemetryCards } from "@/components/TelemetryCards";
@@ -13,7 +14,7 @@ import { RepositoriesView } from "@/components/RepositoriesView";
 import { ScansView } from "@/components/ScansView";
 import { AlertSettingsModal } from "@/components/AlertSettingsModal";
 import { CliAuthModal } from "@/components/CliAuthModal";
-import { Shield, GitFork, Activity } from "lucide-react";
+import { Shield, GitFork, Activity, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { OnboardingHero } from "@/components/OnboardingHero";
@@ -28,6 +29,7 @@ import {
   fetchOrganizations,
   updateIncidentStatus,
   triggerScanAllRepositories,
+  resendOtp,
 } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -44,6 +46,29 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isScanningAll, setIsScanningAll] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
+
+  const handleResendVerification = async () => {
+    if (!user?.email) return;
+    setResendingOtp(true);
+    try {
+      const res = await resendOtp(user.email);
+      toast({
+        type: "success",
+        title: "Verification code sent",
+        description: res.message || "A new 6-digit code has been dispatched to your email.",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to dispatch verification code";
+      toast({
+        type: "error",
+        title: "Dispatch failed",
+        description: msg,
+      });
+    } finally {
+      setResendingOtp(false);
+    }
+  };
 
   // Active View Tab: 'incidents' | 'repositories' | 'scans'
   const [currentView, setCurrentView] = useState<DashboardView>("incidents");
@@ -258,6 +283,49 @@ export default function DashboardPage() {
 
       {/* Main Content Container with Breathable 8pt Spacing */}
       <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-6 flex-1">
+        {/* Unverified Email Workspace Banner */}
+        {user && user.is_verified === false && !isSimulated && (
+          <aside
+            aria-label="Email verification notice"
+            className="bg-surface border border-interactive/40 rounded-2xl p-4 shadow-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200"
+          >
+            <div className="flex items-center space-x-3.5">
+              <div className="w-9 h-9 rounded-xl bg-canvas border border-subtle flex items-center justify-center text-primary shrink-0">
+                <Mail className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <p className="text-xs font-semibold text-heading">
+                    Email verification required
+                  </p>
+                  <span className="text-[10px] font-semibold bg-canvas border border-subtle text-muted px-2 py-0.2 rounded-full">
+                    Action Needed
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted mt-0.5">
+                  A 6-digit confirmation code was sent to <span className="font-mono font-medium text-heading">{user.email}</span>. Confirm your email to secure your workspace.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resendingOtp}
+                className="text-xs font-medium text-muted hover:text-heading px-3 py-1.5 rounded-lg border border-subtle bg-canvas hover:bg-subtle/50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {resendingOtp ? "Sending..." : "Resend Code"}
+              </button>
+              <Link
+                href={`/verify-email?email=${encodeURIComponent(user.email)}`}
+                className="text-xs font-semibold text-surface bg-primary hover:bg-heading px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                Verify Now →
+              </Link>
+            </div>
+          </aside>
+        )}
+
         {/* Telemetry Metrics Grid */}
         <section aria-label="Security Posture Metrics">
           <TelemetryCards
@@ -275,9 +343,9 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setCurrentView("incidents")}
-            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-2 min-h-[40px] rounded-lg text-xs font-medium transition-all ${
               currentView === "incidents"
-                ? "bg-primary text-surface font-semibold"
+                ? "bg-primary text-surface font-semibold shadow-subtle"
                 : "text-muted hover:text-heading hover:bg-canvas"
             }`}
           >
@@ -287,9 +355,9 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setCurrentView("repositories")}
-            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-2 min-h-[40px] rounded-lg text-xs font-medium transition-all ${
               currentView === "repositories"
-                ? "bg-primary text-surface font-semibold"
+                ? "bg-primary text-surface font-semibold shadow-subtle"
                 : "text-muted hover:text-heading hover:bg-canvas"
             }`}
           >
@@ -299,9 +367,9 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setCurrentView("scans")}
-            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-2 min-h-[40px] rounded-lg text-xs font-medium transition-all ${
               currentView === "scans"
-                ? "bg-primary text-surface font-semibold"
+                ? "bg-primary text-surface font-semibold shadow-subtle"
                 : "text-muted hover:text-heading hover:bg-canvas"
             }`}
           >

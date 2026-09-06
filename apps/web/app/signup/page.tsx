@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
@@ -55,6 +55,16 @@ function SignupForm() {
     window.location.href = getOAuthUrl(provider, "signup");
   };
 
+
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: "" };
+    let s = 0;
+    if (password.length >= 8) s += 1;
+    if (/[0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) s += 1;
+    if (password.length >= 12 || (/[a-z]/.test(password) && /[A-Z]/.test(password) && s >= 2)) s += 1;
+    const labels = ["", "Weak", "Fair", "Strong"];
+    return { score: s, label: labels[s] };
+  }, [password]);
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col justify-center items-center p-4 selection:bg-subtle selection:text-heading">
@@ -123,7 +133,6 @@ function SignupForm() {
           </button>
         </div>
 
-
         {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
@@ -137,16 +146,21 @@ function SignupForm() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-canvas border border-interactive text-heading text-xs rounded-xl p-3">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="bg-canvas border border-interactive text-heading text-xs rounded-xl p-3"
+            >
               {error}
             </div>
           )}
 
           <div>
-            <label className="text-xs font-medium text-heading block mb-1.5">
+            <label htmlFor="signup-fullname" className="text-xs font-medium text-heading block mb-1.5">
               Full Name
             </label>
             <input
+              id="signup-fullname"
               type="text"
               autoComplete="name"
               placeholder="Ada Lovelace"
@@ -157,10 +171,11 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-heading block mb-1.5">
+            <label htmlFor="signup-email" className="text-xs font-medium text-heading block mb-1.5">
               Work Email
             </label>
             <input
+              id="signup-email"
               type="email"
               required
               autoComplete="email"
@@ -172,11 +187,12 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-heading block mb-1.5">
+            <label htmlFor="signup-password" className="text-xs font-medium text-heading block mb-1.5">
               Password (min. 8 characters)
             </label>
             <div className="relative">
               <input
+                id="signup-password"
                 type={showPassword ? "text" : "password"}
                 required
                 autoComplete="new-password"
@@ -194,6 +210,43 @@ function SignupForm() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {/* Micro Password Strength Meter */}
+            {password.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted">Password Strength</span>
+                  <span
+                    className={`font-semibold ${
+                      passwordStrength.score === 1
+                        ? "text-amber-600"
+                        : passwordStrength.score === 2
+                        ? "text-interactive"
+                        : "text-primary"
+                    }`}
+                  >
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 h-1">
+                  <div
+                    className={`rounded-full transition-colors ${
+                      passwordStrength.score >= 1 ? "bg-amber-500" : "bg-subtle"
+                    }`}
+                  />
+                  <div
+                    className={`rounded-full transition-colors ${
+                      passwordStrength.score >= 2 ? "bg-interactive" : "bg-subtle"
+                    }`}
+                  />
+                  <div
+                    className={`rounded-full transition-colors ${
+                      passwordStrength.score >= 3 ? "bg-primary" : "bg-subtle"
+                    }`}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <button

@@ -105,6 +105,19 @@ export function OnboardModal({
     }
   }, [isOpen, defaultUsername, performScan]);
 
+  // Keyboard dismiss (Escape)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Filtered GitHub Repos
@@ -184,11 +197,14 @@ export function OnboardModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/50 cursor-pointer animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150"
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboard-modal-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col cursor-default"
+        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-modal flex flex-col cursor-default"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle bg-canvas shrink-0">
@@ -197,7 +213,7 @@ export function OnboardModal({
               <GitFork className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-heading text-base">Connect Repository</h3>
+              <h3 id="onboard-modal-title" className="font-semibold text-heading text-base">Connect Repository</h3>
               <p className="text-xs text-muted">
                 Scan your GitHub repositories or register a custom Git endpoint
               </p>

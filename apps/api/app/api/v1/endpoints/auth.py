@@ -556,9 +556,10 @@ async def github_callback(
         await db.commit()
         await db.refresh(user)
 
-        # 5. Issue Aegis JWT and redirect to frontend
+        # 5. Issue Aegis JWT Pair and redirect to frontend
         token = create_access_token(user_id=str(user.id), email=user.email)
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={token}")
+        refresh_token = create_refresh_token(user_id=str(user.id))
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={token}&refresh_token={refresh_token}")
 
     except Exception as e:
         logger.exception("GitHub OAuth exchange error")
@@ -736,9 +737,10 @@ async def google_callback(
         await db.commit()
         await db.refresh(user)
 
-        # 4. Issue Aegis JWT and redirect to frontend
+        # 4. Issue Aegis JWT Pair and redirect to frontend
         token = create_access_token(user_id=str(user.id), email=user.email)
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={token}")
+        refresh_token = create_refresh_token(user_id=str(user.id))
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={token}&refresh_token={refresh_token}")
 
     except Exception as e:
         logger.exception("Google OAuth exchange error")

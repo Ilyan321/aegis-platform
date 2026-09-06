@@ -10,6 +10,7 @@ function CallbackHandler() {
 
   useEffect(() => {
     const token = searchParams.get("token");
+    const refreshToken = searchParams.get("refresh_token");
     const error = searchParams.get("error");
 
     if (error) {
@@ -18,7 +19,11 @@ function CallbackHandler() {
     }
 
     if (token) {
-      setStoredToken(token);
+      setStoredToken(token, refreshToken || undefined);
+      // Remove tokens from browser navigation history to prevent leakage
+      if (typeof window !== "undefined" && window.history?.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       // Hard reload to root so all telemetry and AuthContext immediately re-evaluate with the new bearer token
       window.location.href = "/";
     } else {
