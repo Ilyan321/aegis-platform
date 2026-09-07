@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     WEBHOOK_SECRET_DEFAULT: str = "aegis-default-webhook-secret"
 
     # CORS & Domains (Strict Single Canonical Domain)
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform.ilyankhan.tech,https://aegis.ilyankhan.tech,https://aegis-api.ilyankhan.tech"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://aegis-platform.ilyankhan.tech,https://aegis.ilyankhan.tech,https://aegis-api.ilyankhan.tech,https://aegis-platform-web.vercel.app"
     FRONTEND_URL: str = Field(
         default="https://aegis-platform.ilyankhan.tech" if os.getenv("RENDER") else "http://localhost:3000"
     )

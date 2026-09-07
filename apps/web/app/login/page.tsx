@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getOAuthUrl } from "@/lib/api";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
 
@@ -39,7 +38,7 @@ function LoginForm() {
       await login(email.trim(), password);
       const nextParam = searchParams.get("next");
       const destination = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
-      router.push(destination);
+      window.location.href = destination;
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
