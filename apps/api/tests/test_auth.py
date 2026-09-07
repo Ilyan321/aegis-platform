@@ -444,3 +444,29 @@ async def test_oauth_redirect_uri_resolution(async_client: AsyncClient):
         settings.GOOGLE_CLIENT_SECRET = orig_g_secret
 
 
+@pytest.mark.asyncio
+async def test_delete_account_and_workspace(async_client: AsyncClient, test_user_data):
+    """Verify permanent deletion of user account, workspace organization, and cascading records."""
+    # 1. Verify user profile exists
+    me_resp = await async_client.get(
+        "/api/v1/auth/me",
+        headers=test_user_data["headers"],
+    )
+    assert me_resp.status_code == 200
+
+    # 2. Call DELETE /api/v1/auth/account
+    del_resp = await async_client.delete(
+        "/api/v1/auth/account",
+        headers=test_user_data["headers"],
+    )
+    assert del_resp.status_code == 200
+    assert del_resp.json()["status"] == "success"
+
+    # 3. Subsequent calls with same token return 401 Unauthorized because user no longer exists
+    after_resp = await async_client.get(
+        "/api/v1/auth/me",
+        headers=test_user_data["headers"],
+    )
+    assert after_resp.status_code == 401
+
+

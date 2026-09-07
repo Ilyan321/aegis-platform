@@ -5,7 +5,7 @@ import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -1042,6 +1042,45 @@ async def get_cli_token(
         "organization_id": str(current_user.organization_id) if current_user.organization_id else None,
         "expires_in_days": 30,
     }
+
+
+@router.delete(
+    "/account",
+    status_code=status.HTTP_200_OK,
+    summary="Permanently delete user account and all workspace data",
+)
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Permanently purges the authenticated user account and their entire workspace,
+    including linked repositories, scan runs, incidents, and audit logs.
+    """
+    org_id = current_user.organization_id
+    user_email = current_user.email
+    user_id = current_user.id
+
+    if org_id:
+        # Check if other users are in this organization
+        users_count_stmt = select(func.count(User.id)).where(
+            User.organization_id == org_id,
+            User.id != current_user.id,
+        )
+        other_users_count = (await db.execute(users_count_stmt)).scalar() or 0
+
+        if other_users_count == 0:
+            # Sole member of organization; delete organization (cascades to repos, scans, incidents, audits)
+            org = await db.get(Organization, org_id)
+            if org:
+                await db.delete(org)
+
+    # Delete the user record
+    await db.delete(current_user)
+    await db.commit()
+
+    logger.info(f"Permanently purged user account and workspace: {user_email} (ID: {user_id})")
+    return {"status": "success", "message": "Account and workspace data have been permanently deleted."}
 
 
 

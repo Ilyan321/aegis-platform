@@ -539,6 +539,12 @@ export async function revokeAllSessions(): Promise<{ message: string }> {
   });
 }
 
+export async function deleteUserAccount(): Promise<{ status: string; message: string }> {
+  return apiFetch<{ status: string; message: string }>("/api/v1/auth/account", {
+    method: "DELETE",
+  });
+}
+
 export interface OrganizationSettings {
   id: string;
   name: string;

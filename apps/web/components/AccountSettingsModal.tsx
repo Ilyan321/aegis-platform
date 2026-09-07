@@ -17,6 +17,7 @@ import {
   Building,
   Calendar,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -24,6 +25,7 @@ import {
   updateUserProfile,
   changePassword,
   revokeAllSessions,
+  deleteUserAccount,
   unlinkGitHub,
   getOAuthUrl,
 } from "@/lib/api";
@@ -71,6 +73,11 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
   const [revokingSessions, setRevokingSessions] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
 
+  // Account Deletion State
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   // Status feedback
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -85,6 +92,8 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
       setConfirmPassword("");
       setErrorMessage(null);
       setConfirmRevoke(false);
+      setConfirmDelete(false);
+      setDeleteConfirmInput("");
     }
   }, [isOpen, user]);
 
@@ -241,6 +250,36 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
         description: msg,
       });
       setRevokingSessions(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmInput.trim() !== "DELETE") {
+      setErrorMessage("Please type DELETE in uppercase to confirm permanent account removal.");
+      return;
+    }
+    setDeletingAccount(true);
+    setErrorMessage(null);
+    try {
+      await deleteUserAccount();
+      toast({
+        type: "info",
+        title: "Account Purged",
+        description: "Your account and all workspace data have been permanently removed.",
+      });
+      setTimeout(() => {
+        logout();
+        window.location.href = "/signup";
+      }, 800);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete account";
+      setErrorMessage(msg);
+      toast({
+        type: "error",
+        title: "Deletion Failed",
+        description: msg,
+      });
+      setDeletingAccount(false);
     }
   };
 
@@ -768,6 +807,81 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         disabled={revokingSessions}
                         onClick={() => setConfirmRevoke(false)}
                         className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Danger Zone: Permanent Account & Workspace Deletion */}
+              <div className="border-t border-rose-200 dark:border-rose-900/40 pt-5 space-y-3">
+                <div>
+                  <h4 className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center space-x-1.5">
+                    <Trash2 className="w-4 h-4" />
+                    <span>Danger Zone: Delete Account & Workspace</span>
+                  </h4>
+                  <p className="text-[11px] text-muted mt-0.5">
+                    Permanently purges your account, credentials, all connected repositories, scan runs, incidents, and audit trails from the database.
+                  </p>
+                </div>
+
+                {!confirmDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-2"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Account & Purge All Data</span>
+                  </button>
+                ) : (
+                  <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/80 space-y-3 animate-in fade-in duration-150">
+                    <div className="space-y-1">
+                      <p className="text-xs text-rose-700 dark:text-rose-300 font-semibold">
+                        This action cannot be undone. All your data will be permanently wiped.
+                      </p>
+                      <p className="text-[11px] text-rose-600/90 dark:text-rose-300/80">
+                        Please type <code className="font-mono font-bold bg-white dark:bg-rose-950 px-1 py-0.5 rounded border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-200">DELETE</code> to confirm:
+                      </p>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={deleteConfirmInput}
+                      onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                      placeholder="Type DELETE"
+                      className="w-full text-xs font-mono bg-white dark:bg-zinc-900 border border-rose-300 dark:border-rose-800 rounded-lg px-3 py-2 text-rose-700 dark:text-rose-200 placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                    />
+
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={deletingAccount || deleteConfirmInput.trim() !== "DELETE"}
+                        onClick={handleDeleteAccount}
+                        className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1.5 shadow-sm"
+                      >
+                        {deletingAccount ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Purging Account...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Permanently Purge Everything</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingAccount}
+                        onClick={() => {
+                          setConfirmDelete(false);
+                          setDeleteConfirmInput("");
+                        }}
+                        className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3 py-2 rounded-lg transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>
