@@ -1,16 +1,22 @@
 "use client";
 
 import React from "react";
-import { GitFork, Flame, AlertOctagon, Clock } from "lucide-react";
+import { GitFork, Flame, AlertOctagon, Clock, HelpCircle } from "lucide-react";
 import { TelemetryData } from "@/lib/api";
 
 interface TelemetryCardsProps {
   data: TelemetryData | null;
   loading?: boolean;
   onSelectCategory?: (category: "ALL" | "ACTIVE" | "CRITICAL") => void;
+  onViewChange?: (view: "incidents" | "repositories" | "scans") => void;
 }
 
-export function TelemetryCards({ data, loading, onSelectCategory }: TelemetryCardsProps) {
+export function TelemetryCards({
+  data,
+  loading,
+  onSelectCategory,
+  onViewChange,
+}: TelemetryCardsProps) {
   const cards = [
     {
       id: "REPOSITORIES",
@@ -18,7 +24,8 @@ export function TelemetryCards({ data, loading, onSelectCategory }: TelemetryCar
       value: data?.total_repositories ?? 0,
       icon: GitFork,
       subtitle: `${data?.total_scans ?? 0} scans run`,
-      isClickable: false,
+      isClickable: true,
+      onClick: () => onViewChange?.("repositories"),
     },
     {
       id: "ACTIVE",
@@ -29,6 +36,10 @@ export function TelemetryCards({ data, loading, onSelectCategory }: TelemetryCar
       isAlert: (data?.active_leaks ?? 0) > 0,
       isClickable: true,
       category: "ACTIVE" as const,
+      onClick: () => {
+        onViewChange?.("incidents");
+        onSelectCategory?.("ACTIVE");
+      },
     },
     {
       id: "CRITICAL",
@@ -38,14 +49,19 @@ export function TelemetryCards({ data, loading, onSelectCategory }: TelemetryCar
       subtitle: `${data?.critical_count ?? 0} critical priority`,
       isClickable: true,
       category: "CRITICAL" as const,
+      onClick: () => {
+        onViewChange?.("incidents");
+        onSelectCategory?.("CRITICAL");
+      },
     },
     {
       id: "MTTR",
       title: "Mean Time to Remediate",
-      value: `${data?.mean_time_to_remediate_hours ?? 1.8}h`,
+      value: `${data?.mean_time_to_remediate_hours ?? 0.0}h`,
       icon: Clock,
       subtitle: `${data?.resolved_incidents ?? 0} resolved`,
       isClickable: false,
+      tooltip: "Mean Time to Remediate (MTTR): Average duration from credential discovery to verified resolution in codebase.",
     },
   ];
 
@@ -53,23 +69,27 @@ export function TelemetryCards({ data, loading, onSelectCategory }: TelemetryCar
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {cards.map((card) => {
         const Icon = card.icon;
-        const clickable = Boolean(card.isClickable && onSelectCategory);
+        const clickable = Boolean(card.isClickable && card.onClick);
 
         return (
           <div
             key={card.id}
             onClick={() => {
-              if (clickable && card.category && onSelectCategory) {
-                onSelectCategory(card.category);
+              if (clickable && card.onClick) {
+                card.onClick();
               }
             }}
+            title={card.tooltip || (clickable ? `Click to view ${card.title.toLowerCase()}` : undefined)}
             className={`bg-surface border border-subtle rounded-xl p-6 flex flex-col justify-between shadow-subtle ${
               clickable ? "cursor-pointer hover:border-interactive transition-all hover:shadow-card group" : ""
             }`}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold tracking-wider uppercase text-muted group-hover:text-heading transition-colors">
-                {card.title}
+              <span className="text-xs font-semibold tracking-wider uppercase text-muted group-hover:text-heading transition-colors flex items-center space-x-1.5">
+                <span>{card.title}</span>
+                {card.tooltip && (
+                  <HelpCircle className="w-3 h-3 text-muted/60" aria-hidden="true" />
+                )}
               </span>
               <Icon className="w-4 h-4 text-primary" />
             </div>

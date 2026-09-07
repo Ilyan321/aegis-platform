@@ -28,6 +28,7 @@ from app.models.organization import Organization
 from app.models.repository import Repository
 from app.models.scan_run import ScanRun
 from app.models.user import User
+from app.services.audit import create_tamper_evident_audit
 from app.services.notifications import (
     send_slack_incident_alert,
     send_slack_scan_summary_alert,
@@ -335,7 +336,8 @@ async def execute_scan_workflow(
                         existing_incident.severity = "CRITICAL"
                         existing_incident.resolved_at = None
 
-                        audit = IncidentAudit(
+                        await create_tamper_evident_audit(
+                            db=db,
                             incident_id=existing_incident.id,
                             actor_id="AEGIS_SCANNER",
                             action="REGRESSION_DETECTED",
@@ -343,7 +345,6 @@ async def execute_scan_workflow(
                             new_state={"status": "REGRESSION", "commit_sha": commit_sha},
                             created_at=datetime.now(timezone.utc),
                         )
-                        db.add(audit)
 
                         alert_findings.append({
                             "rule_id": rule_id,
@@ -380,7 +381,8 @@ async def execute_scan_workflow(
                     db.add(new_incident)
                     await db.flush()
 
-                    audit = IncidentAudit(
+                    await create_tamper_evident_audit(
+                        db=db,
                         incident_id=new_incident.id,
                         actor_id="AEGIS_SCANNER",
                         action="DETECTED",
@@ -388,7 +390,6 @@ async def execute_scan_workflow(
                         new_state={"status": "OPEN", "severity": severity, "rule_id": rule_id},
                         created_at=datetime.now(timezone.utc),
                     )
-                    db.add(audit)
 
                     if severity in ("CRITICAL", "HIGH") or verif_status == "ACTIVE":
                         alert_findings.append({
@@ -432,7 +433,8 @@ async def execute_scan_workflow(
                 if inc.fingerprint not in current_fingerprints:
                     inc.status = "RESOLVED"
                     inc.resolved_at = datetime.now(timezone.utc)
-                    audit = IncidentAudit(
+                    await create_tamper_evident_audit(
+                        db=db,
                         incident_id=inc.id,
                         actor_id="AEGIS_SCANNER",
                         action="AUTO_RESOLVED_REMOVED_IN_COMMIT",
@@ -440,7 +442,6 @@ async def execute_scan_workflow(
                         new_state={"status": "RESOLVED", "resolved_commit": commit_sha},
                         created_at=datetime.now(timezone.utc),
                     )
-                    db.add(audit)
 
             # 8. Finalize ScanRun
             scan_run.status = "COMPLETED"

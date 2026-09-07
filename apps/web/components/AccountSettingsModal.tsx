@@ -54,6 +54,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
   // Profile State
   const [fullName, setFullName] = useState("");
   const [githubUsername, setGithubUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [unlinkingGithub, setUnlinkingGithub] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
@@ -78,6 +79,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
     if (isOpen && user) {
       setFullName(user.full_name || "");
       setGithubUsername(user.github_username || "");
+      setAvatarUrl(user.avatar_url || "");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -133,6 +135,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
       await updateUserProfile({
         full_name: fullName.trim() || null,
         github_username: githubUsername.trim() || null,
+        avatar_url: avatarUrl.trim() || null,
       });
       await refreshUser();
       toast({
@@ -336,9 +339,13 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
               <div className="flex items-center space-x-4 p-4 rounded-xl bg-canvas border border-subtle">
                 <div className="relative">
                   <div className="w-12 h-12 rounded-full bg-surface border border-subtle text-primary font-bold text-base flex items-center justify-center shadow-xs overflow-hidden">
-                    {user.avatar_url ? (
+                    {avatarUrl.trim() || user.avatar_url ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={user.avatar_url} alt={user.full_name || user.email} className="w-full h-full object-cover" />
+                      <img
+                        src={avatarUrl.trim() || user.avatar_url || ""}
+                        alt={fullName || user.full_name || user.email}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       initials
                     )}
@@ -384,6 +391,23 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   />
                   <p className="text-[11px] text-muted">
                     This name is shown across security incident reports, scan logs, and workspace activities.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="avatar-url" className="text-xs font-medium text-heading">
+                    Custom Avatar URL (Optional)
+                  </label>
+                  <input
+                    id="avatar-url"
+                    type="url"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    placeholder="https://example.com/avatar.png"
+                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors font-mono"
+                  />
+                  <p className="text-[11px] text-muted">
+                    Leave blank to use the high-resolution vector initials badge.
                   </p>
                 </div>
 

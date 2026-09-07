@@ -59,22 +59,27 @@ export function OnboardModal({
 
   // Derive initial username from user object
   const defaultUsername = useMemo(() => {
+    if (user?.github_username) {
+      return user.github_username;
+    }
     if (user?.email && user.provider === "github") {
       return user.email.split("@")[0];
     }
-    if (user?.full_name && !user.full_name.includes(" ")) {
-      return user.full_name;
-    }
-    return "Ilyan321";
+    return "";
   }, [user]);
 
   // Scan Repositories Handler
   const performScan = useCallback(
     async (usernameToQuery?: string) => {
+      const query = (usernameToQuery || "").trim();
+      if (!query) {
+        setGithubRepos([]);
+        return;
+      }
       setScanning(true);
       setFormError(null);
       try {
-        const data = await fetchGitHubRepositories(usernameToQuery);
+        const data = await fetchGitHubRepositories(query);
         setGhConnected(data.connected);
         setGithubRepos(data.repositories || []);
         if (data.error && data.repositories.length === 0) {
@@ -101,7 +106,11 @@ export function OnboardModal({
       setSecret("");
 
       setUsernameInput(defaultUsername);
-      performScan(defaultUsername);
+      if (defaultUsername) {
+        performScan(defaultUsername);
+      } else {
+        setGithubRepos([]);
+      }
     }
   }, [isOpen, defaultUsername, performScan]);
 
@@ -147,7 +156,7 @@ export function OnboardModal({
 
     // Strict validation
     if (!cleanName.includes("/") || cleanName.split("/").length !== 2) {
-      setFormError("Repository name must follow the 'owner/repo' format (e.g. Ilyan321/my-repo).");
+      setFormError("Repository name must follow the 'owner/repo' format (e.g. acme-corp/api-gateway).");
       return;
     }
 
@@ -296,7 +305,7 @@ export function OnboardModal({
                   <div className="relative flex-1 sm:w-44">
                     <input
                       type="text"
-                      placeholder="Username (e.g. Ilyan321)"
+                      placeholder="Username or org (e.g. acme-corp)"
                       value={usernameInput}
                       onChange={(e) => setUsernameInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -473,7 +482,7 @@ export function OnboardModal({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Ilyan321/demo-repo"
+                  placeholder="e.g. acme-corp/api-gateway"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-canvas border border-subtle rounded-lg text-heading placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-interactive"

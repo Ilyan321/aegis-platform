@@ -22,7 +22,7 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { Incident } from "@/lib/api";
+import { Incident, downloadComplianceExport } from "@/lib/api";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 
 interface IncidentTableProps {
@@ -60,6 +60,18 @@ export function IncidentTable({
   // Keyboard navigation
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
+  const [exportingCompliance, setExportingCompliance] = useState<boolean>(false);
+
+  const handleDownloadCompliance = async (fmt: "csv" | "json") => {
+    setExportingCompliance(true);
+    try {
+      await downloadComplianceExport(fmt);
+    } catch (err) {
+      console.error("Failed to download compliance export:", err);
+    } finally {
+      setExportingCompliance(false);
+    }
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -318,6 +330,20 @@ export function IncidentTable({
               <Keyboard className="w-3.5 h-3.5 text-primary" />
               <span>Shortcuts</span>
               <kbd className="text-[9px] font-mono px-1 py-0.2 bg-surface rounded border border-subtle text-muted">?</kbd>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDownloadCompliance("csv")}
+              disabled={exportingCompliance}
+              title="Download SOC 2 / ISO 27001 verifiable compliance audit report (CSV)"
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-[11px] font-medium text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {exportingCompliance ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+              ) : (
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              )}
+              <span>SOC 2 Audit</span>
             </button>
             <button
               type="button"

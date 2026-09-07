@@ -179,8 +179,13 @@ export function Navbar({
                 aria-expanded={profileOpen}
                 aria-haspopup="true"
               >
-                <div className="w-5 h-5 rounded-full bg-subtle text-heading font-semibold text-[10px] flex items-center justify-center">
-                  {initials}
+                <div className="w-5 h-5 rounded-full bg-subtle text-heading font-semibold text-[10px] flex items-center justify-center overflow-hidden shrink-0">
+                  {user.avatar_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={user.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
                 </div>
                 <span className="text-xs font-medium text-heading hidden md:inline max-w-[100px] truncate">
                   {displayName}
@@ -193,8 +198,13 @@ export function Navbar({
                 <div className="absolute right-0 mt-2 w-64 bg-surface border border-subtle rounded-xl shadow-elevated p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                   {/* User Profile Details */}
                   <div className="flex items-center space-x-3 pb-3 border-b border-subtle">
-                    <div className="w-9 h-9 rounded-full bg-canvas border border-subtle text-primary font-semibold text-sm flex items-center justify-center shrink-0">
-                      {initials}
+                    <div className="w-9 h-9 rounded-full bg-canvas border border-subtle text-primary font-semibold text-sm flex items-center justify-center shrink-0 overflow-hidden">
+                      {user.avatar_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={user.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                      ) : (
+                        initials
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-heading truncate">{displayName}</p>

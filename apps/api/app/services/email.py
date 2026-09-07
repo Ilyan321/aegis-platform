@@ -174,6 +174,208 @@ class EmailService:
 </body>
 </html>"""
 
+    @staticmethod
+    def _build_welcome_email_html(user_name: Optional[str], user_email: str) -> str:
+        name_display = user_name or user_email.split("@")[0]
+        dashboard_url = settings.FRONTEND_URL.rstrip("/")
+        cli_url = f"{dashboard_url}/cli"
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Aegis Platform</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #E6F4F3; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0D3B39;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 48px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="560px" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #ffffff; border-radius: 18px; border: 1px solid #BEE7E3; box-shadow: 0 4px 24px rgba(13, 59, 57, 0.06); overflow: hidden; padding: 40px 36px;">
+          <!-- Brand Header -->
+          <tr>
+            <td align="center" style="padding-bottom: 24px;">
+              <table border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="width: 40px; height: 40px; background-color: #0D3B39; border-radius: 10px; text-align: center; vertical-align: middle; color: #7ED2CC; font-weight: 700; font-size: 20px;">
+                    🛡️
+                  </td>
+                  <td style="padding-left: 12px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0D3B39;">
+                    Aegis Platform
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Heading -->
+          <tr>
+            <td align="center" style="padding-bottom: 12px;">
+              <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; color: #0D3B39;">Welcome to Aegis, {name_display}!</h1>
+            </td>
+          </tr>
+
+          <!-- Description -->
+          <tr>
+            <td align="center" style="padding-bottom: 28px; color: #4D6F6D; font-size: 14px; line-height: 1.6;">
+              Your dedicated security control plane has been activated. Aegis provides real-time credential leak interception across your Git repositories, CI/CD pipelines, and local developer workstations.
+            </td>
+          </tr>
+
+          <!-- Quickstart Steps Card -->
+          <tr>
+            <td style="padding-bottom: 28px;">
+              <div style="background-color: #E6F4F3; border: 1px solid #BEE7E3; border-radius: 12px; padding: 20px 24px;">
+                <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #16857A; margin-bottom: 14px;">
+                  3-Step Quickstart Guide
+                </div>
+                <div style="font-size: 13px; color: #0D3B39; line-height: 1.8;">
+                  <strong>1. Connect Repositories:</strong> Link your GitHub/GitLab codebases to enable automated webhook inspection.<br>
+                  <strong>2. Install Aegis CLI:</strong> Protect pre-commit hooks locally with <code style="background-color: #ffffff; padding: 2px 6px; border-radius: 4px; font-family: monospace;">aegis init</code>.<br>
+                  <strong>3. Configure Alerts:</strong> Set up Slack or email alerts for instant breach response.
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- CTA Buttons -->
+          <tr>
+            <td align="center" style="padding-bottom: 28px;">
+              <a href="{dashboard_url}" target="_blank" style="display: inline-block; background-color: #16857A; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px; margin-right: 8px;">
+                Open Dashboard
+              </a>
+              <a href="{cli_url}" target="_blank" style="display: inline-block; background-color: #ffffff; color: #0D3B39; border: 1px solid #BEE7E3; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 24px; border-radius: 10px;">
+                Install CLI
+              </a>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="border-top: 1px solid #BEE7E3; padding-top: 24px;"></td>
+          </tr>
+
+          <!-- Security Footer -->
+          <tr>
+            <td align="center" style="color: #4D6F6D; font-size: 12px; line-height: 1.5;">
+              Questions? Check out the <a href="{dashboard_url}" style="color: #16857A; text-decoration: none;">Aegis Documentation</a>.
+              <br>© Aegis Security Ecosystem. Zero-Knowledge Credential Security Mesh.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    @staticmethod
+    def _build_breach_alert_email_html(
+        repo_name: str,
+        rule_name: str,
+        severity: str,
+        file_path: str,
+        line_number: int,
+        masked_snippet: str,
+        committer: Optional[str],
+        commit_sha: Optional[str],
+    ) -> str:
+        dashboard_url = settings.FRONTEND_URL.rstrip("/")
+        committer_str = committer or "Unknown Committer"
+        short_sha = commit_sha[:7] if commit_sha else "HEAD"
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aegis Security Breach Alert</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #fff1f2; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0D3B39;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 48px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="560px" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #ffffff; border-radius: 18px; border: 1px solid #fecdd3; box-shadow: 0 4px 24px rgba(225, 29, 72, 0.08); overflow: hidden; padding: 40px 36px;">
+          <!-- Header Banner -->
+          <tr>
+            <td align="center" style="padding-bottom: 20px;">
+              <span style="display: inline-block; background-color: #e11d48; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px;">
+                SECURITY BREACH DETECTED
+              </span>
+            </td>
+          </tr>
+
+          <!-- Heading -->
+          <tr>
+            <td align="center" style="padding-bottom: 12px;">
+              <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #881337;">{severity} Leak in {repo_name}</h1>
+            </td>
+          </tr>
+
+          <!-- Detail Card -->
+          <tr>
+            <td style="padding-bottom: 24px;">
+              <div style="background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; padding: 18px 20px; font-size: 13px; line-height: 1.7; color: #4c0519;">
+                <strong>Rule:</strong> {rule_name}<br>
+                <strong>Location:</strong> <code style="font-family: monospace;">{file_path}:{line_number}</code><br>
+                <strong>Committer:</strong> {committer_str} ({short_sha})<br>
+                <strong>Masked Token:</strong> <code style="font-family: monospace; background-color: #ffffff; padding: 2px 6px; border-radius: 4px;">{masked_snippet}</code>
+              </div>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td align="center" style="padding-bottom: 24px;">
+              <a href="{dashboard_url}" target="_blank" style="display: inline-block; background-color: #e11d48; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 10px;">
+                View Remediation Playbook
+              </a>
+            </td>
+          </tr>
+
+          <!-- Security Footer -->
+          <tr>
+            <td align="center" style="border-top: 1px solid #ffe4e6; padding-top: 20px; color: #9f1239; font-size: 11px;">
+              © Aegis Platform • Automated DevSecOps Incident Response
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    @classmethod
+    async def send_welcome_email(cls, to_email: str, user_name: Optional[str] = None) -> bool:
+        subject = "Welcome to Aegis Platform — Your workspace is ready"
+        html = cls._build_welcome_email_html(user_name=user_name, user_email=to_email)
+        return await cls.send_email(to_email, subject, html)
+
+    @classmethod
+    async def send_breach_alert(
+        cls,
+        to_email: str,
+        repo_name: str,
+        rule_name: str,
+        severity: str,
+        file_path: str,
+        line_number: int,
+        masked_snippet: str,
+        committer: Optional[str] = None,
+        commit_sha: Optional[str] = None,
+    ) -> bool:
+        subject = f"[BREACH ALERT] {severity} secret leak detected in {repo_name}"
+        html = cls._build_breach_alert_email_html(
+            repo_name=repo_name,
+            rule_name=rule_name,
+            severity=severity,
+            file_path=file_path,
+            line_number=line_number,
+            masked_snippet=masked_snippet,
+            committer=committer,
+            commit_sha=commit_sha,
+        )
+        return await cls.send_email(to_email, subject, html)
+
     @classmethod
     async def send_email(cls, to_email: str, subject: str, html_content: str) -> bool:
         """
@@ -226,3 +428,4 @@ class EmailService:
         reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={reset_token}"
         html = cls._build_password_reset_email_html(reset_url=reset_url, user_email=to_email)
         return await cls.send_email(to_email, subject, html)
+

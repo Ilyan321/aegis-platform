@@ -210,6 +210,26 @@ export async function fetchIncidentAudits(id: string): Promise<IncidentAudit[]> 
   return apiFetch<IncidentAudit[]>(`/api/v1/incidents/${id}/audits`);
 }
 
+export async function downloadComplianceExport(format: "csv" | "json" = "csv"): Promise<void> {
+  const token = getStoredToken();
+  const res = await fetch(`${API_BASE}/api/v1/incidents/export?format=${format}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    throw new Error(`Compliance export failed with HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const dateStr = new Date().toISOString().split("T")[0];
+  a.href = url;
+  a.download = `aegis-soc2-compliance-report-${dateStr}.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export async function createRepository(payload: {
   organization_id?: string;
   full_name: string;
@@ -480,7 +500,11 @@ export async function resetPassword(token: string, newPassword: string): Promise
   return res.json();
 }
 
-export async function updateUserProfile(data: { full_name?: string | null; github_username?: string | null }): Promise<User> {
+export async function updateUserProfile(data: {
+  full_name?: string | null;
+  github_username?: string | null;
+  avatar_url?: string | null;
+}): Promise<User> {
   return apiFetch<User>("/api/v1/auth/profile", {
     method: "PATCH",
     body: JSON.stringify(data),

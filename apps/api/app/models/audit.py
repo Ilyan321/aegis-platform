@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from sqlalchemy import DateTime, ForeignKey, JSON, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,6 +27,9 @@ class IncidentAudit(Base):
     )  # "DETECTED", "VERIFIED_ACTIVE", "AUTO_RESOLVED", "REGRESSION_DETECTED", "MANUAL_DISMISS"
     previous_state: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=True)
     new_state: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=True)
+    client_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    previous_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    entry_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

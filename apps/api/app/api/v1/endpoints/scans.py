@@ -21,6 +21,7 @@ from app.models.repository import Repository
 from app.models.scan_run import ScanRun
 from app.models.user import User
 from app.schemas.scan_run import CliScanPayload, CliScanResponse
+from app.services.audit import create_tamper_evident_audit
 from app.services.notifications import send_slack_scan_summary_alert
 
 logger = logging.getLogger("aegis.scans.cli")
@@ -141,14 +142,15 @@ async def ingest_cli_scan(
                 existing.status = "REGRESSION"
                 existing.severity = "CRITICAL"
                 existing.resolved_at = None
-                audit = IncidentAudit(
+                await create_tamper_evident_audit(
+                    db=db,
                     incident_id=existing.id,
                     actor_id=current_user.email,
                     action="REGRESSION_DETECTED",
                     previous_state={"status": prev_status},
                     new_state={"status": "REGRESSION", "trigger": "cli_sync"},
+                    created_at=now,
                 )
-                db.add(audit)
         else:
             inc = Incident(
                 repository_id=repo.id,
@@ -174,13 +176,14 @@ async def ingest_cli_scan(
             incidents_recorded += 1
             await db.flush()
 
-            audit = IncidentAudit(
+            await create_tamper_evident_audit(
+                db=db,
                 incident_id=inc.id,
                 actor_id=current_user.email,
                 action="CLI_FINDING_RECORDED",
                 new_state={"status": "OPEN", "rule": f.rule_id, "trigger": "cli_sync"},
+                created_at=now,
             )
-            db.add(audit)
 
         if severity in ("CRITICAL", "HIGH") or verif_status == "ACTIVE":
             alert_findings.append({

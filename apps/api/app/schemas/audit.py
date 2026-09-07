@@ -11,6 +11,9 @@ class IncidentAuditRead(BaseModel):
     action: str
     previous_state: Optional[Dict[str, Any]] = None
     new_state: Optional[Dict[str, Any]] = None
+    client_ip: Optional[str] = None
+    previous_hash: Optional[str] = None
+    entry_hash: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

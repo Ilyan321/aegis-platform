@@ -288,6 +288,9 @@ async def update_profile(
     if data.github_username is not None:
         clean_handle = data.github_username.strip().replace("@", "")
         current_user.github_username = clean_handle if clean_handle else None
+    if data.avatar_url is not None:
+        clean_avatar = data.avatar_url.strip()
+        current_user.avatar_url = clean_avatar if clean_avatar else None
     await db.commit()
     await db.refresh(current_user)
     resp = UserResponse.model_validate(current_user)
@@ -464,6 +467,11 @@ async def verify_email(
     user.is_verified = True
     await db.commit()
     await db.refresh(user)
+
+    try:
+        await EmailService.send_welcome_email(user.email, user.full_name)
+    except Exception as exc:
+        logger.error(f"Failed to dispatch welcome email to {user.email}: {exc}")
 
     token = create_access_token(user_id=str(user.id), email=user.email)
     refresh_token = create_refresh_token(user_id=str(user.id))
@@ -786,8 +794,15 @@ async def github_callback(
             user.set_github_token(gh_token)
             db.add(user)
 
+        is_new_user = (actual_mode == "signup")
         await db.commit()
         await db.refresh(user)
+
+        if is_new_user:
+            try:
+                await EmailService.send_welcome_email(user.email, user.full_name)
+            except Exception as exc:
+                logger.error(f"Failed to dispatch welcome email to {user.email}: {exc}")
 
         # 5. Issue Aegis JWT Pair and redirect to frontend
         token = create_access_token(user_id=str(user.id), email=user.email)
@@ -988,8 +1003,15 @@ async def google_callback(
             )
             db.add(user)
 
+        is_new_user = (actual_mode == "signup")
         await db.commit()
         await db.refresh(user)
+
+        if is_new_user:
+            try:
+                await EmailService.send_welcome_email(user.email, user.full_name)
+            except Exception as exc:
+                logger.error(f"Failed to dispatch welcome email to {user.email}: {exc}")
 
         # 4. Issue Aegis JWT Pair and redirect to frontend
         token = create_access_token(user_id=str(user.id), email=user.email)
