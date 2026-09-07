@@ -96,6 +96,15 @@ export function getOAuthUrl(provider: "github" | "google", mode: "login" | "sign
   return `${getApiBase()}/api/v1/auth/${provider}?mode=${mode}${param}`;
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function apiFetch<T>(
   endpoint: string,
   options: RequestInit & { _isRetry?: boolean } = {}
@@ -109,11 +118,20 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${getApiBase()}${endpoint}`, {
-    ...options,
-    headers,
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBase()}${endpoint}`, {
+      ...options,
+      headers,
+      cache: "no-store",
+    });
+  } catch (err) {
+    if (!options._isRetry) {
+      await new Promise((r) => setTimeout(r, 600));
+      return apiFetch<T>(endpoint, { ...options, _isRetry: true });
+    }
+    throw err;
+  }
 
   if (!res.ok) {
     if (res.status === 401 && !options._isRetry && typeof window !== "undefined") {
@@ -125,9 +143,16 @@ export async function apiFetch<T>(
       if (window.location.pathname !== "/login") {
         window.location.href = "/login?reason=session_expired";
       }
+      throw new ApiError("Session expired or unauthorized", 401);
     }
+
+    if (res.status >= 500 && !options._isRetry) {
+      await new Promise((r) => setTimeout(r, 600));
+      return apiFetch<T>(endpoint, { ...options, _isRetry: true });
+    }
+
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Request failed with status ${res.status}`);
+    throw new ApiError(err.detail || `Request failed with status ${res.status}`, res.status);
   }
 
   if (res.status === 204) {
@@ -334,7 +359,9 @@ export function getStoredRefreshToken(): string | null {
 export function setStoredToken(token: string, refreshToken?: string): void {
   if (typeof window !== "undefined") {
     localStorage.setItem(TOKEN_KEY, token);
-    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax;`;
+    const isHttps = window.location.protocol === "https:";
+    const secureFlag = isHttps ? "; Secure" : "";
+    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax${secureFlag}`;
     if (refreshToken) {
       localStorage.setItem(REFRESH_KEY, refreshToken);
     }
@@ -440,8 +467,10 @@ export async function fetchCurrentUser(): Promise<User | null> {
 
   try {
     return await apiFetch<User>("/api/v1/auth/me");
-  } catch {
-    removeStoredToken();
+  } catch (err: unknown) {
+    if (err instanceof ApiError && err.status === 401) {
+      removeStoredToken();
+    }
     return null;
   }
 }
