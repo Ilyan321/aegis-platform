@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   User,
@@ -18,6 +18,10 @@ import {
   Calendar,
   ExternalLink,
   Trash2,
+  Camera,
+  Upload,
+  Sparkles,
+  Link2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -30,6 +34,14 @@ import {
   getOAuthUrl,
 } from "@/lib/api";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+
+const AVATAR_PRESETS = [
+  { id: "sentinel", label: "Sentinel", url: "https://api.dicebear.com/7.x/bottts/svg?seed=AegisSentinel&backgroundColor=b6e3f4,c0aede,d1d4f9" },
+  { id: "operator", label: "Cyber", url: "https://api.dicebear.com/7.x/bottts/svg?seed=CyberOperator&backgroundColor=b6e3f4,ffd5dc,ffdfbf" },
+  { id: "matrix", label: "Matrix", url: "https://api.dicebear.com/7.x/identicon/svg?seed=MatrixCore&backgroundColor=c0aede,d1d4f9" },
+  { id: "shield", label: "Shield", url: "https://api.dicebear.com/7.x/shapes/svg?seed=ShieldDefense&backgroundColor=b6e3f4" },
+  { id: "quantum", label: "Quantum", url: "https://api.dicebear.com/7.x/bottts/svg?seed=QuantumDev&backgroundColor=ffd5dc,ffdfbf" },
+];
 
 function GitHubIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -62,6 +74,9 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
   const [savingProfile, setSavingProfile] = useState(false);
   const [unlinkingGithub, setUnlinkingGithub] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [customUrlMode, setCustomUrlMode] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Security State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -135,6 +150,91 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
     navigator.clipboard.writeText(user.id);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        type: "error",
+        title: "Invalid File Type",
+        description: "Please select an image file (PNG, JPG, WebP, GIF).",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        type: "error",
+        title: "File Too Large",
+        description: "Avatar images must be smaller than 5MB.",
+      });
+      return;
+    }
+
+    setProcessingImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const size = 256;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const minDim = Math.min(img.width, img.height);
+            const sx = (img.width - minDim) / 2;
+            const sy = (img.height - minDim) / 2;
+            ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+            const dataUrl = canvas.toDataURL("image/webp", 0.88);
+            setAvatarUrl(dataUrl);
+            toast({
+              type: "success",
+              title: "Photo Loaded",
+              description: "Click 'Save Changes' to update your account avatar.",
+            });
+          }
+        } catch {
+          // Fallback to raw data url if canvas security or context fails
+          const rawUrl = event.target?.result as string;
+          if (rawUrl) setAvatarUrl(rawUrl);
+        } finally {
+          setProcessingImage(false);
+        }
+      };
+      img.onerror = () => {
+        setProcessingImage(false);
+        toast({
+          type: "error",
+          title: "Image Error",
+          description: "Could not decode the selected image.",
+        });
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      setProcessingImage(false);
+      toast({
+        type: "error",
+        title: "Read Error",
+        description: "Could not read the selected image file.",
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarUrl("");
+    toast({
+      type: "info",
+      title: "Avatar Reset",
+      description: "Reverted to vector initials badge. Click 'Save Changes' to apply.",
+    });
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -376,44 +476,166 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
           {/* TAB 1: PROFILE & IDENTITY */}
           {activeTab === "profile" && (
             <div className="space-y-5">
-              {/* Identity Banner */}
-              <div className="flex items-center space-x-4 p-4 rounded-xl bg-canvas border border-subtle">
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-surface border border-subtle text-primary font-bold text-base flex items-center justify-center shadow-xs overflow-hidden">
-                    {avatarUrl.trim() || user.avatar_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={avatarUrl.trim() || user.avatar_url || ""}
-                        alt={fullName || user.full_name || user.email}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      initials
-                    )}
+              {/* Profile Photo & Identity Card */}
+              <div className="p-4 rounded-xl bg-canvas border border-subtle space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Interactive Avatar Circle with Hover Overlay */}
+                  <div className="relative group shrink-0 self-start sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={processingImage}
+                      className="w-16 h-16 rounded-full bg-surface border-2 border-subtle text-primary font-bold text-lg flex items-center justify-center shadow-xs overflow-hidden cursor-pointer relative focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all hover:border-interactive group"
+                      title="Click to upload profile picture"
+                    >
+                      {processingImage ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      ) : avatarUrl.trim() || user.avatar_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={avatarUrl.trim() || user.avatar_url || ""}
+                          alt={fullName || user.full_name || user.email}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        initials
+                      )}
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-heading/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white">
+                        <Camera className="w-4 h-4" />
+                        <span className="text-[9px] font-medium mt-0.5">Upload</span>
+                      </div>
+                    </button>
+                    <span
+                      className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-surface ${
+                        user.is_verified ? "bg-emerald-500" : "bg-amber-500"
+                      }`}
+                      title={user.is_verified ? "Verified Account" : "Unverified Email"}
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                   </div>
-                  <span
-                    className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-surface ${
-                      user.is_verified ? "bg-emerald-500" : "bg-amber-500"
-                    }`}
-                    title={user.is_verified ? "Verified Account" : "Unverified Email"}
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h4 className="font-semibold text-heading text-sm truncate">
-                      {user.full_name || "Operator"}
-                    </h4>
-                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface border border-subtle text-muted">
-                      {user.provider}
-                    </span>
-                    {user.is_verified && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
-                        Verified
+
+                  {/* Photo Actions & User Info */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-semibold text-heading text-sm truncate">
+                        {user.full_name || "Operator"}
+                      </h4>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface border border-subtle text-muted">
+                        {user.provider}
                       </span>
-                    )}
+                      {user.is_verified && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
+                          Verified
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={processingImage}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-subtle hover:border-interactive text-heading hover:bg-canvas shadow-2xs transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-primary" />
+                        <span>Upload Photo</span>
+                      </button>
+
+                      {(avatarUrl || user.avatar_url) && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 bg-surface border border-rose-200 hover:bg-rose-50 transition-colors flex items-center space-x-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+
+                      {user.github_username && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAvatarUrl(`https://github.com/${user.github_username}.png`);
+                            toast({
+                              type: "info",
+                              title: "GitHub Photo Selected",
+                              description: "Click 'Save Changes' to apply your GitHub avatar.",
+                            });
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-heading bg-surface border border-subtle hover:bg-canvas transition-colors flex items-center space-x-1.5 cursor-pointer"
+                        >
+                          <GitHubIcon className="w-3.5 h-3.5" />
+                          <span>Use GitHub Photo</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-muted truncate">{user.email}</p>
                 </div>
+
+                {/* Avatar Presets & Custom URL Toggle */}
+                <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-medium text-muted flex items-center space-x-1">
+                      <Sparkles className="w-3 h-3 text-primary" />
+                      <span>Presets:</span>
+                    </span>
+                    <div className="flex items-center space-x-1.5">
+                      {AVATAR_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            setAvatarUrl(preset.url);
+                            toast({
+                              type: "info",
+                              title: `${preset.label} Avatar Selected`,
+                              description: "Click 'Save Changes' to update your profile.",
+                            });
+                          }}
+                          className="w-6 h-6 rounded-full border border-subtle hover:border-interactive overflow-hidden bg-surface transition-transform hover:scale-110 cursor-pointer shadow-2xs"
+                          title={`Use ${preset.label} avatar`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCustomUrlMode(!customUrlMode)}
+                    className="text-[11px] text-primary hover:underline flex items-center space-x-1 self-start sm:self-auto cursor-pointer"
+                  >
+                    <Link2 className="w-3 h-3" />
+                    <span>{customUrlMode ? "Hide image link" : "Or use image link"}</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Custom URL Input */}
+                {customUrlMode && (
+                  <div className="pt-2 animate-in fade-in duration-150 space-y-1">
+                    <label htmlFor="avatar-url" className="text-[11px] font-medium text-heading">
+                      Custom Image URL
+                    </label>
+                    <input
+                      id="avatar-url"
+                      type="url"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      placeholder="https://example.com/avatar.png"
+                      className="w-full text-xs bg-surface border border-subtle rounded-xl px-3 py-2 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors font-mono"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Edit Display Name Form */}
@@ -432,23 +654,6 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   />
                   <p className="text-[11px] text-muted">
                     This name is shown across security incident reports, scan logs, and workspace activities.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label htmlFor="avatar-url" className="text-xs font-medium text-heading">
-                    Custom Avatar URL (Optional)
-                  </label>
-                  <input
-                    id="avatar-url"
-                    type="url"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="https://example.com/avatar.png"
-                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors font-mono"
-                  />
-                  <p className="text-[11px] text-muted">
-                    Leave blank to use the high-resolution vector initials badge.
                   </p>
                 </div>
 

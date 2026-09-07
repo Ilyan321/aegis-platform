@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,7 +17,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Null for OAuth users
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    avatar_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     provider: Mapped[str] = mapped_column(String(50), default="local", server_default="local", nullable=False)  # local, github, google
     provider_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     github_username: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)

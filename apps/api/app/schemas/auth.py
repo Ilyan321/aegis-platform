@@ -109,7 +109,7 @@ class MessageResponse(BaseModel):
 class UpdateProfileRequest(BaseModel):
     full_name: Optional[str] = Field(None, max_length=100)
     github_username: Optional[str] = Field(None, max_length=100)
-    avatar_url: Optional[str] = Field(None, max_length=1024)
+    avatar_url: Optional[str] = Field(None, max_length=2_000_000)
 
 
 class VerifyGitHubHandleRequest(BaseModel):
