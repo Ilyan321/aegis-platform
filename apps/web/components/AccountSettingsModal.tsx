@@ -152,6 +152,34 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
     setTimeout(() => setCopiedId(false), 2000);
   };
 
+  const saveAvatar = async (newAvatarUrl: string | null) => {
+    setProcessingImage(true);
+    setErrorMessage(null);
+    try {
+      await updateUserProfile({
+        full_name: fullName.trim() || null,
+        github_username: githubUsername.trim() || null,
+        avatar_url: newAvatarUrl ? newAvatarUrl.trim() : null,
+      });
+      await refreshUser();
+      toast({
+        type: "success",
+        title: "Avatar Updated",
+        description: "Your profile picture has been saved successfully.",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update avatar";
+      setErrorMessage(msg);
+      toast({
+        type: "error",
+        title: "Update Failed",
+        description: msg,
+      });
+    } finally {
+      setProcessingImage(false);
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -178,7 +206,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         try {
           const canvas = document.createElement("canvas");
           const size = 256;
@@ -192,16 +220,15 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
             ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
             const dataUrl = canvas.toDataURL("image/webp", 0.88);
             setAvatarUrl(dataUrl);
-            toast({
-              type: "success",
-              title: "Photo Loaded",
-              description: "Click 'Save Changes' to update your account avatar.",
-            });
+            await saveAvatar(dataUrl);
           }
         } catch {
           // Fallback to raw data url if canvas security or context fails
           const rawUrl = event.target?.result as string;
-          if (rawUrl) setAvatarUrl(rawUrl);
+          if (rawUrl) {
+            setAvatarUrl(rawUrl);
+            await saveAvatar(rawUrl);
+          }
         } finally {
           setProcessingImage(false);
         }
@@ -228,13 +255,9 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
     e.target.value = "";
   };
 
-  const handleRemoveAvatar = () => {
+  const handleRemoveAvatar = async () => {
     setAvatarUrl("");
-    toast({
-      type: "info",
-      title: "Avatar Reset",
-      description: "Reverted to vector initials badge. Click 'Save Changes' to apply.",
-    });
+    await saveAvatar(null);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -562,15 +585,13 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                       {user.github_username && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setAvatarUrl(`https://github.com/${user.github_username}.png`);
-                            toast({
-                              type: "info",
-                              title: "GitHub Photo Selected",
-                              description: "Click 'Save Changes' to apply your GitHub avatar.",
-                            });
+                          disabled={processingImage}
+                          onClick={async () => {
+                            const ghUrl = `https://github.com/${user.github_username}.png`;
+                            setAvatarUrl(ghUrl);
+                            await saveAvatar(ghUrl);
                           }}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-heading bg-surface border border-subtle hover:bg-canvas transition-colors flex items-center space-x-1.5 cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-heading bg-surface border border-subtle hover:bg-canvas transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                         >
                           <GitHubIcon className="w-3.5 h-3.5" />
                           <span>Use GitHub Photo</span>
@@ -592,15 +613,12 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         <button
                           key={preset.id}
                           type="button"
-                          onClick={() => {
+                          disabled={processingImage}
+                          onClick={async () => {
                             setAvatarUrl(preset.url);
-                            toast({
-                              type: "info",
-                              title: `${preset.label} Avatar Selected`,
-                              description: "Click 'Save Changes' to update your profile.",
-                            });
+                            await saveAvatar(preset.url);
                           }}
-                          className="w-6 h-6 rounded-full border border-subtle hover:border-interactive overflow-hidden bg-surface transition-transform hover:scale-110 cursor-pointer shadow-2xs"
+                          className="w-6 h-6 rounded-full border border-subtle hover:border-interactive overflow-hidden bg-surface transition-transform hover:scale-110 cursor-pointer shadow-2xs disabled:opacity-50"
                           title={`Use ${preset.label} avatar`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -626,14 +644,32 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     <label htmlFor="avatar-url" className="text-[11px] font-medium text-heading">
                       Custom Image URL
                     </label>
-                    <input
-                      id="avatar-url"
-                      type="url"
-                      value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)}
-                      placeholder="https://example.com/avatar.png"
-                      className="w-full text-xs bg-surface border border-subtle rounded-xl px-3 py-2 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors font-mono"
-                    />
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="avatar-url"
+                        type="url"
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            await saveAvatar(avatarUrl);
+                          }
+                        }}
+                        placeholder="https://example.com/avatar.png"
+                        className="flex-1 text-xs bg-surface border border-subtle rounded-xl px-3 py-2 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors font-mono"
+                      />
+                      <button
+                        type="button"
+                        disabled={processingImage || !avatarUrl.trim()}
+                        onClick={async () => {
+                          await saveAvatar(avatarUrl);
+                        }}
+                        className="px-3 py-2 rounded-xl text-xs font-semibold bg-primary hover:bg-primary-hover text-white transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Apply
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
