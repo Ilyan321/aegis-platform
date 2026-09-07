@@ -1061,6 +1061,9 @@ async def delete_account(
     user_email = current_user.email
     user_id = current_user.id
 
+    # Invalidate all active tokens / sessions immediately
+    await SessionTokenManager.revoke_user_sessions(user_id)
+
     if org_id:
         # Check if other users are in this organization
         users_count_stmt = select(func.count(User.id)).where(
