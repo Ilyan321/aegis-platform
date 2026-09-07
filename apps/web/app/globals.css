@@ -43,11 +43,60 @@ body {
   box-shadow: 0 4px 12px 0 rgba(13, 59, 57, 0.07);
 }
 
-/* Zero-CLS Shimmer Placeholder */
+/* High-Fidelity Cascading Shimmer Light Sweep */
+@keyframes shimmerWave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer-block {
+  position: relative;
+  overflow: hidden;
+  background-color: #D3EFEB;
+}
+
+.shimmer-block::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(211, 239, 235, 0) 0%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(211, 239, 235, 0) 100%
+  );
+  animation: shimmerWave 1.6s ease-in-out infinite;
+  content: "";
+}
+
 .shimmer-placeholder {
-  background: linear-gradient(90deg, #E6F4F3 0%, #D2EFEB 50%, #E6F4F3 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  position: relative;
+  overflow: hidden;
+  background-color: #D3EFEB;
+}
+
+.shimmer-placeholder::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(211, 239, 235, 0) 0%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(211, 239, 235, 0) 100%
+  );
+  animation: shimmerWave 1.6s ease-in-out infinite;
+  content: "";
 }
 
 /* Subtle Pulsing Live Indicator */
