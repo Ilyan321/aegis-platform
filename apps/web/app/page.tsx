@@ -14,6 +14,7 @@ import { RepositoriesView } from "@/components/RepositoriesView";
 import { ScansView } from "@/components/ScansView";
 import { AlertSettingsModal } from "@/components/AlertSettingsModal";
 import { AccountSettingsModal } from "@/components/AccountSettingsModal";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Shield, GitFork, Activity, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -295,25 +296,7 @@ export default function DashboardPage() {
   }, [incidents, currentTab, searchQuery]);
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 rounded-xl bg-canvas border border-subtle flex items-center justify-center text-primary animate-pulse mb-3">
-          <svg
-            className="w-5 h-5 text-primary"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-        </div>
-        <p className="text-xs text-muted">Securing control plane session...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

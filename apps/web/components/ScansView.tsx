@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Activity, GitCommit, GitBranch, ShieldAlert, CheckCircle2, Clock, AlertTriangle, RefreshCw, Terminal, Play, GitFork } from "lucide-react";
 import { ScanRun, Repository } from "@/lib/api";
+import { ShimmerBlock } from "@/components/DashboardSkeleton";
 
 interface ScansViewProps {
   scans: ScanRun[];
@@ -66,9 +67,20 @@ export function ScansView({
 
       {/* Scans Ledger or Empty State */}
       {loading ? (
-        <div className="bg-surface border border-subtle rounded-xl p-8 space-y-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 rounded shimmer-placeholder" />
+        <div className="bg-surface border border-subtle rounded-xl overflow-hidden shadow-subtle divide-y divide-subtle/40">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <ShimmerBlock className="w-20 h-5 rounded-md" />
+                <ShimmerBlock className="w-24 h-5 rounded-md" />
+                <ShimmerBlock className="w-32 h-4 rounded" />
+              </div>
+              <div className="flex items-center space-x-3">
+                <ShimmerBlock className="w-24 h-4 rounded font-mono" />
+                <ShimmerBlock className="w-16 h-4 rounded" />
+                <ShimmerBlock className="w-24 h-4 rounded" />
+              </div>
+            </div>
           ))}
         </div>
       ) : filteredScans.length === 0 ? (

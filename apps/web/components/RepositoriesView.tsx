@@ -5,6 +5,7 @@ import { GitFork, GitBranch, Plus, Search, Copy, Shield, Trash2, Loader2, Play, 
 import { Repository, deleteRepository, triggerRepositoryScan } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import { WebhookSetupModal } from "@/components/WebhookSetupModal";
+import { ShimmerBlock } from "@/components/DashboardSkeleton";
 
 interface RepositoriesViewProps {
   repositories: Repository[];
@@ -125,11 +126,17 @@ export function RepositoriesView({
       {/* Repositories Grid or Empty State */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-surface border border-subtle rounded-xl p-5 space-y-3">
-              <div className="h-5 w-32 rounded shimmer-placeholder" />
-              <div className="h-4 w-48 rounded shimmer-placeholder" />
-              <div className="h-4 w-20 rounded shimmer-placeholder" />
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-surface border border-subtle rounded-xl p-5 space-y-4 shadow-subtle">
+              <div className="flex items-center justify-between">
+                <ShimmerBlock className="w-36 h-5 rounded-md" />
+                <ShimmerBlock className="w-14 h-4 rounded-full" />
+              </div>
+              <ShimmerBlock className="w-48 h-3.5 rounded" />
+              <div className="flex items-center space-x-2 pt-2 border-t border-subtle/40">
+                <ShimmerBlock className="w-20 h-6 rounded-md" />
+                <ShimmerBlock className="w-20 h-6 rounded-md" />
+              </div>
             </div>
           ))}
         </div>
