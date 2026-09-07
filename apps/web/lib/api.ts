@@ -345,7 +345,7 @@ export function removeStoredToken(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
-    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax;`;
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax;`;
   }
 }
 
