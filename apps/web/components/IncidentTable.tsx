@@ -24,9 +24,11 @@ import {
 } from "lucide-react";
 import { Incident, downloadComplianceExport } from "@/lib/api";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
+import { ShimmerBlock } from "@/components/DashboardSkeleton";
 
 interface IncidentTableProps {
   incidents: Incident[];
+  loading?: boolean;
   onSelectIncident: (inc: Incident) => void;
   onTriageStatus: (id: string, newStatus: "RESOLVED" | "DISMISSED") => void;
   onBulkStatus?: (ids: string[], newStatus: "RESOLVED" | "DISMISSED") => Promise<void>;
@@ -44,6 +46,7 @@ const SEVERITY_WEIGHTS: Record<string, number> = {
 
 export function IncidentTable({
   incidents,
+  loading = false,
   onSelectIncident,
   onTriageStatus,
   onBulkStatus,
@@ -290,6 +293,49 @@ export function IncidentTable({
       <ArrowDown className="w-3 h-3 text-primary ml-1 inline-block" />
     );
   };
+
+  if (loading) {
+    return (
+      <div className="bg-surface border border-subtle rounded-xl overflow-hidden shadow-none divide-y divide-subtle/50 animate-in fade-in duration-100">
+        <div className="p-4 border-b border-subtle flex items-center justify-between bg-canvas/30">
+          <ShimmerBlock className="w-32 h-4 rounded" />
+          <div className="flex items-center space-x-2">
+            <ShimmerBlock className="w-20 h-7 rounded-lg" />
+            <ShimmerBlock className="w-24 h-7 rounded-lg" />
+          </div>
+        </div>
+        {[1, 2, 3, 4, 5, 6].map((row) => (
+          <div key={row} className="grid grid-cols-12 gap-4 px-6 py-4 items-center">
+            <div className="col-span-1 flex items-center">
+              <ShimmerBlock className="w-4 h-4 rounded" />
+            </div>
+            <div className="col-span-1">
+              <ShimmerBlock className="w-16 h-5 rounded-md" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <ShimmerBlock className="w-32 h-4 rounded" />
+              <ShimmerBlock className="w-20 h-3 rounded" />
+            </div>
+            <div className="col-span-3">
+              <ShimmerBlock className="w-44 h-4 rounded font-mono" />
+            </div>
+            <div className="col-span-2">
+              <ShimmerBlock className="w-36 h-6 rounded-md" />
+            </div>
+            <div className="col-span-1">
+              <ShimmerBlock className="w-20 h-4 rounded-full" />
+            </div>
+            <div className="col-span-1">
+              <ShimmerBlock className="w-16 h-4 rounded" />
+            </div>
+            <div className="col-span-1 flex justify-end">
+              <ShimmerBlock className="w-16 h-7 rounded-lg" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (incidents.length === 0) {
     return (

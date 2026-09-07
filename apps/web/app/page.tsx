@@ -295,7 +295,7 @@ export default function DashboardPage() {
     });
   }, [incidents, currentTab, searchQuery]);
 
-  if (authLoading || !user) {
+  if (authLoading || !user || loading) {
     return <DashboardSkeleton />;
   }
 
@@ -500,6 +500,7 @@ export default function DashboardPage() {
                 {/* Incident Forensic Ledger */}
                 <IncidentTable
                   incidents={filteredIncidents}
+                  loading={loading}
                   onSelectIncident={(inc) => setSelectedIncident(inc)}
                   onTriageStatus={handleTriageStatus}
                   onBulkStatus={handleBulkStatus}
