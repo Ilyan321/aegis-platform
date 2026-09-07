@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { X, Command, Keyboard, Navigation, Layers, Shield } from "lucide-react";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface ShortcutCategory {
 }
 
 export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsModalProps) {
+  useBodyScrollLock(isOpen);
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -68,11 +70,11 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200 overscroll-contain"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-xl bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-xl bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -96,7 +98,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto overscroll-contain">
           {categories.map((cat, idx) => (
             <div key={idx} className="space-y-2.5">
               <div className="flex items-center space-x-2 text-xs font-semibold text-heading uppercase tracking-wider">

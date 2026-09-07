@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Search, ShieldAlert, Shield, GitFork, AlertCircle, Plus, X, Activity, RefreshCw, Bell, Terminal, User } from "lucide-react";
 import { Incident, Repository } from "@/lib/api";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface CommandMenuProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export function CommandMenu({
   onOpenAlertSettings,
   onOpenAccountSettings,
 }: CommandMenuProps) {
+  useBodyScrollLock(isOpen);
   const router = useRouter();
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -60,11 +62,11 @@ export function CommandMenu({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-heading/40 cursor-pointer"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-heading/40 cursor-pointer overscroll-contain"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-100 cursor-default"
+        className="bg-surface border border-subtle rounded-xl w-full max-w-xl border-collapse overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-100 cursor-default overscroll-contain"
       >
         <Command label="Aegis Global Command Palette" className="w-full">
           <div className="flex items-center px-4 border-b border-subtle bg-canvas">
@@ -85,7 +87,7 @@ export function CommandMenu({
             </button>
           </div>
 
-          <Command.List className="max-h-80 overflow-y-auto p-2 space-y-1 text-xs">
+          <Command.List className="max-h-80 overflow-y-auto overscroll-contain p-2 space-y-1 text-xs">
             <Command.Empty className="py-6 text-center text-muted">
               No matching commands or findings.
             </Command.Empty>

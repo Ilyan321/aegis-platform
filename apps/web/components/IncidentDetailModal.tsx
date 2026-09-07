@@ -24,6 +24,7 @@ import { Incident, IncidentAudit, fetchIncidentAudits, updateIncidentStatus } fr
 import { getRemediationPlaybook } from "@/lib/playbooks";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface IncidentDetailModalProps {
   incident: Incident | null;
@@ -38,6 +39,7 @@ export function IncidentDetailModal({
   onClose,
   onStatusUpdated,
 }: IncidentDetailModalProps) {
+  useBodyScrollLock(Boolean(incident));
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -219,14 +221,14 @@ export function IncidentDetailModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/50 backdrop-blur-xs cursor-pointer animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/50 backdrop-blur-xs cursor-pointer animate-in fade-in duration-200 overscroll-contain"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="incident-detail-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 cursor-default flex flex-col max-h-[90vh]"
+        className="bg-surface border border-subtle rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 cursor-default flex flex-col max-h-[90vh] overscroll-contain"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-subtle bg-canvas">
@@ -338,7 +340,7 @@ export function IncidentDetailModal({
         </div>
 
         {/* Tab Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-surface">
+        <div className="p-6 overflow-y-auto overscroll-contain space-y-6 flex-1 bg-surface">
           {/* ========================================================================= */}
           {/* TAB 1: OVERVIEW & FORENSIC CODE SNIPPET */}
           {/* ========================================================================= */}

@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface WebhookSetupModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export function WebhookSetupModal({
   repository,
   onWebhookInstalled,
 }: WebhookSetupModalProps) {
+  useBodyScrollLock(isOpen && Boolean(repository));
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -117,14 +119,14 @@ export function WebhookSetupModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150 overscroll-contain"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="webhook-modal-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-modal flex flex-col cursor-default"
+        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-modal flex flex-col cursor-default overscroll-contain"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle bg-canvas shrink-0">
@@ -161,7 +163,7 @@ export function WebhookSetupModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-5 overflow-y-auto overscroll-contain space-y-4 flex-1">
           {error && (
             <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs rounded-xl p-3 flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
