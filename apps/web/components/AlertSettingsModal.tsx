@@ -174,7 +174,7 @@ export function AlertSettingsModal({
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto overscroll-contain space-y-5 flex-1">
           {errorMessage && (
-            <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs rounded-xl p-3 flex items-start space-x-2">
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl p-3 flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>

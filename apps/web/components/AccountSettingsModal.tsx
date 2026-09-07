@@ -297,14 +297,14 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/40 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150 overscroll-contain"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-heading/50 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150 overscroll-contain"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="account-settings-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-subtle rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-modal flex flex-col cursor-default overscroll-contain"
+        className="bg-surface border border-subtle rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-modal flex flex-col cursor-default overscroll-contain"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle bg-canvas shrink-0">
@@ -329,7 +329,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
         </div>
 
         {/* Apple Segmented Switcher */}
-        <div className="px-5 pt-4 bg-surface shrink-0">
+        <div className="px-6 pt-4 bg-surface shrink-0">
           <div className="grid grid-cols-2 p-1 bg-canvas border border-subtle rounded-xl text-xs font-medium">
             <button
               type="button"
@@ -337,13 +337,13 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 setActiveTab("profile");
                 setErrorMessage(null);
               }}
-              className={`flex items-center justify-center space-x-2 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center justify-center space-x-2 py-2 rounded-lg transition-all cursor-pointer ${
                 activeTab === "profile"
                   ? "bg-surface text-heading shadow-xs font-semibold"
                   : "text-muted hover:text-heading"
               }`}
             >
-              <User className="w-3.5 h-3.5" />
+              <User className="w-3.5 h-3.5 text-primary" />
               <span>Profile & Identity</span>
             </button>
             <button
@@ -352,23 +352,23 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 setActiveTab("security");
                 setErrorMessage(null);
               }}
-              className={`flex items-center justify-center space-x-2 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center justify-center space-x-2 py-2 rounded-lg transition-all cursor-pointer ${
                 activeTab === "security"
                   ? "bg-surface text-heading shadow-xs font-semibold"
                   : "text-muted hover:text-heading"
               }`}
             >
-              <KeyRound className="w-3.5 h-3.5" />
+              <KeyRound className="w-3.5 h-3.5 text-primary" />
               <span>Credentials & Security</span>
             </button>
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 overflow-y-auto overscroll-contain space-y-5 flex-1">
+        <div className="p-6 overflow-y-auto overscroll-contain space-y-5 flex-1">
           {errorMessage && (
-            <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs rounded-xl p-3 flex items-start space-x-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3.5 flex items-start space-x-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -407,7 +407,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                       {user.provider}
                     </span>
                     {user.is_verified && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
                         Verified
                       </span>
                     )}
@@ -428,7 +428,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. Satoshi Nakamoto"
-                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
+                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
                   />
                   <p className="text-[11px] text-muted">
                     This name is shown across security incident reports, scan logs, and workspace activities.
@@ -445,7 +445,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     value={avatarUrl}
                     onChange={(e) => setAvatarUrl(e.target.value)}
                     placeholder="https://example.com/avatar.png"
-                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors font-mono"
+                    className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors font-mono"
                   />
                   <p className="text-[11px] text-muted">
                     Leave blank to use the high-resolution vector initials badge.
@@ -460,7 +460,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                       <span>GitHub Identity & Committer Handle</span>
                     </span>
                     {user.github_username ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 flex items-center space-x-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
                         <Check className="w-3 h-3" />
                         <span>Verified Handle</span>
                       </span>
@@ -470,10 +470,10 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   </label>
 
                   {user.github_username ? (
-                    <div className="p-3 bg-canvas border border-subtle rounded-xl flex items-center justify-between">
-                      <div className="flex items-center space-x-2.5">
-                        <GitHubIcon className="w-4 h-4 text-heading" />
-                        <div>
+                    <div className="p-3.5 bg-canvas border border-subtle rounded-xl flex items-center justify-between gap-3">
+                      <div className="flex items-center space-x-2.5 min-w-0">
+                        <GitHubIcon className="w-4 h-4 text-heading shrink-0" />
+                        <div className="min-w-0">
                           <a
                             href={`https://github.com/${user.github_username}`}
                             target="_blank"
@@ -483,7 +483,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                             <span>@{user.github_username}</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
-                          <span className="text-[10px] text-muted block">
+                          <span className="text-[10px] text-muted block truncate">
                             Cryptographically linked and verified via GitHub
                           </span>
                         </div>
@@ -492,7 +492,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         type="button"
                         disabled={unlinkingGithub}
                         onClick={handleUnlinkGithub}
-                        className="text-[11px] text-muted hover:text-rose-600 px-2.5 py-1 rounded-lg border border-subtle hover:border-rose-300 dark:hover:border-rose-800 bg-surface transition-colors cursor-pointer"
+                        className="text-xs font-medium text-rose-700 hover:text-rose-800 px-3 py-1.5 rounded-lg border border-rose-200 hover:border-rose-300 bg-surface hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
                         title="Unlink GitHub handle"
                       >
                         {unlinkingGithub ? "Unlinking..." : "Unlink"}
@@ -534,10 +534,10 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   <label className="text-xs font-medium text-heading flex items-center justify-between">
                     <span>Email Address</span>
                     <span
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                         user.is_verified
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50"
-                          : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                          : "bg-amber-50 text-amber-800 border-amber-300"
                       }`}
                     >
                       {user.is_verified ? "Verified" : "Verification Pending"}
@@ -555,7 +555,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   <button
                     type="submit"
                     disabled={savingProfile}
-                    className="flex items-center space-x-2 text-xs font-medium bg-primary hover:bg-heading text-surface px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex items-center space-x-2 text-xs font-semibold bg-primary hover:bg-heading text-surface px-4 py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {savingProfile ? (
                       <>
@@ -576,7 +576,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
               <div className="border-t border-subtle pt-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between text-muted">
                   <span className="flex items-center space-x-2">
-                    <Building className="w-3.5 h-3.5" />
+                    <Building className="w-3.5 h-3.5 text-primary" />
                     <span>Workspace Organization</span>
                   </span>
                   <span className="font-medium text-heading">
@@ -586,7 +586,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
 
                 <div className="flex items-center justify-between text-muted">
                   <span className="flex items-center space-x-2">
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
                     <span>Member Since</span>
                   </span>
                   <span className="font-medium text-heading">{createdDate}</span>
@@ -594,7 +594,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
 
                 <div className="flex items-center justify-between text-muted">
                   <span className="flex items-center space-x-2">
-                    <Shield className="w-3.5 h-3.5" />
+                    <Shield className="w-3.5 h-3.5 text-primary" />
                     <span>User Identifier</span>
                   </span>
                   <button
@@ -604,7 +604,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     title="Click to copy ID"
                   >
                     <span>{user.id.slice(0, 12)}...</span>
-                    {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                    {copiedId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                   </button>
                 </div>
               </div>
@@ -614,7 +614,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
           {/* TAB 2: CREDENTIALS & SECURITY */}
           {activeTab === "security" && (
             <div className="space-y-6">
-              {/* Master Password Section */}
+              {/* Master Password Section or SSO Banner */}
               {user.provider === "local" ? (
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div>
@@ -637,7 +637,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="••••••••••••"
-                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
+                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
                       />
                       <button
                         type="button"
@@ -663,7 +663,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="At least 8 characters"
-                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
+                        className="w-full text-xs bg-canvas border border-subtle rounded-xl pl-3.5 pr-10 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
                       />
                       <button
                         type="button"
@@ -695,16 +695,16 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                           ))}
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-[10px] text-muted pt-1">
-                          <span className={hasMinLength ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                          <span className={hasMinLength ? "text-emerald-700 font-medium" : ""}>
                             {hasMinLength ? "✓" : "•"} 8+ characters
                           </span>
-                          <span className={hasMixedCase ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                          <span className={hasMixedCase ? "text-emerald-700 font-medium" : ""}>
                             {hasMixedCase ? "✓" : "•"} Upper & lower case
                           </span>
-                          <span className={hasNumber ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                          <span className={hasNumber ? "text-emerald-700 font-medium" : ""}>
                             {hasNumber ? "✓" : "•"} Numbers included
                           </span>
-                          <span className={hasSpecial ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                          <span className={hasSpecial ? "text-emerald-700 font-medium" : ""}>
                             {hasSpecial ? "✓" : "•"} Symbols included
                           </span>
                         </div>
@@ -724,7 +724,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat new password"
-                      className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-hidden focus:border-primary transition-colors"
+                      className="w-full text-xs bg-canvas border border-subtle rounded-xl px-3.5 py-2.5 text-heading placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
                     />
                   </div>
 
@@ -732,7 +732,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                     <button
                       type="submit"
                       disabled={changingPassword || !currentPassword || !newPassword}
-                      className="flex items-center space-x-2 text-xs font-medium bg-primary hover:bg-heading text-surface px-4 py-2 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                      className="flex items-center space-x-2 text-xs font-semibold bg-primary hover:bg-heading text-surface px-4 py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {changingPassword ? (
                         <>
@@ -765,7 +765,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
               {/* Global Session Revocation */}
               <div className="border-t border-subtle pt-5 space-y-3">
                 <div>
-                  <h4 className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center space-x-1.5">
+                  <h4 className="text-xs font-semibold text-rose-700 flex items-center space-x-1.5">
                     <ShieldAlert className="w-4 h-4" />
                     <span>Session Termination Kill-Switch</span>
                   </h4>
@@ -778,14 +778,14 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   <button
                     type="button"
                     onClick={() => setConfirmRevoke(true)}
-                    className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-2"
+                    className="text-xs font-semibold text-rose-700 bg-surface hover:bg-rose-50 border border-rose-200 hover:border-rose-300 px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-2 shadow-xs"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Revoke All Active Sessions</span>
                   </button>
                 ) : (
-                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 space-y-3 animate-in fade-in duration-150">
-                    <p className="text-xs text-rose-700 dark:text-rose-300 font-medium">
+                  <div className="p-4 rounded-xl bg-rose-50/80 border border-rose-200 space-y-3 animate-in fade-in duration-150">
+                    <p className="text-xs text-rose-900 font-semibold">
                       Are you sure? You will be immediately logged out on all devices.
                     </p>
                     <div className="flex items-center space-x-2">
@@ -793,7 +793,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         type="button"
                         disabled={revokingSessions}
                         onClick={handleRevokeAllSessions}
-                        className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 shadow-xs"
+                        className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 shadow-xs"
                       >
                         {revokingSessions ? (
                           <>
@@ -808,7 +808,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         type="button"
                         disabled={revokingSessions}
                         onClick={() => setConfirmRevoke(false)}
-                        className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3.5 py-2 rounded-lg transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -818,9 +818,9 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
               </div>
 
               {/* Danger Zone: Permanent Account & Workspace Deletion */}
-              <div className="border-t border-rose-200 dark:border-rose-900/40 pt-5 space-y-3">
+              <div className="border-t border-rose-200 pt-5 space-y-3">
                 <div>
-                  <h4 className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center space-x-1.5">
+                  <h4 className="text-xs font-semibold text-rose-700 flex items-center space-x-1.5">
                     <Trash2 className="w-4 h-4" />
                     <span>Danger Zone: Delete Account & Workspace</span>
                   </h4>
@@ -833,19 +833,19 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-2"
+                    className="text-xs font-semibold text-rose-700 bg-surface hover:bg-rose-50 border border-rose-200 hover:border-rose-300 px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-2 shadow-xs"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete Account & Purge All Data</span>
                   </button>
                 ) : (
-                  <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/80 space-y-3 animate-in fade-in duration-150">
+                  <div className="p-4 rounded-xl bg-rose-50/80 border border-rose-300 space-y-3 animate-in fade-in duration-150">
                     <div className="space-y-1">
-                      <p className="text-xs text-rose-700 dark:text-rose-300 font-semibold">
+                      <p className="text-xs text-rose-900 font-semibold">
                         This action cannot be undone. All your data will be permanently wiped.
                       </p>
-                      <p className="text-[11px] text-rose-600/90 dark:text-rose-300/80">
-                        Please type <code className="font-mono font-bold bg-white dark:bg-rose-950 px-1 py-0.5 rounded border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-200">DELETE</code> to confirm:
+                      <p className="text-[11px] text-rose-800">
+                        Please type <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-rose-300 text-rose-800">DELETE</code> to confirm:
                       </p>
                     </div>
 
@@ -854,7 +854,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                       value={deleteConfirmInput}
                       onChange={(e) => setDeleteConfirmInput(e.target.value)}
                       placeholder="Type DELETE"
-                      className="w-full text-xs font-mono bg-white dark:bg-zinc-900 border border-rose-300 dark:border-rose-800 rounded-lg px-3 py-2 text-rose-700 dark:text-rose-200 placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                      className="w-full text-xs font-mono bg-white border border-rose-300 rounded-lg px-3.5 py-2 text-heading placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-xs"
                     />
 
                     <div className="flex items-center space-x-2 pt-1">
@@ -862,7 +862,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                         type="button"
                         disabled={deletingAccount || deleteConfirmInput.trim() !== "DELETE"}
                         onClick={handleDeleteAccount}
-                        className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1.5 shadow-sm"
+                        className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1.5 shadow-xs"
                       >
                         {deletingAccount ? (
                           <>
@@ -883,7 +883,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                           setConfirmDelete(false);
                           setDeleteConfirmInput("");
                         }}
-                        className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3 py-2 rounded-lg transition-colors cursor-pointer"
+                        className="text-xs font-medium bg-surface hover:bg-subtle text-muted hover:text-heading border border-subtle px-3.5 py-2 rounded-lg transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>

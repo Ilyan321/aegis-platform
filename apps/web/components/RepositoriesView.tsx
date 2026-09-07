@@ -241,7 +241,7 @@ export function RepositoriesView({
               {/* Footer Meta & Actions */}
               {confirmDeleteId === repo.id ? (
                 <div className="pt-3 border-t border-subtle flex items-center justify-between animate-in fade-in duration-150">
-                  <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  <span className="text-xs font-semibold text-rose-600">
                     Disconnect repo?
                   </span>
                   <div className="flex items-center space-x-1.5">
@@ -310,7 +310,7 @@ export function RepositoriesView({
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(repo.id)}
-                      className="p-1 rounded-md text-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                      className="p-1 rounded-md text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       title={`Disconnect ${repo.full_name}`}
                       aria-label={`Disconnect ${repo.full_name}`}
                     >
