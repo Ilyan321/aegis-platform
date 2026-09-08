@@ -156,7 +156,7 @@ export function IncidentDetailModal({
       first_seen_at: incident.first_seen_at,
       last_seen_at: incident.last_seen_at,
       resolved_at: incident.resolved_at || null,
-      agent: "Aegis Zero-Dependency DevSecOps Intercept Mesh",
+      agent: "Aegis Zero-Dependency DevSecOps Intercept Engine",
     };
     copyToClipboard(JSON.stringify(payload, null, 2), "SIEM Event JSON", "siem-json");
   };

@@ -563,7 +563,7 @@ export function OnboardModal({
             ) : (
               <>
                 <GitFork className="w-3.5 h-3.5" />
-                <span>Add to Monitoring Mesh</span>
+                <span>Add Repository</span>
               </>
             )}
           </button>

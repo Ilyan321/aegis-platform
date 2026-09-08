@@ -61,11 +61,12 @@ export function RepositoriesView({
   );
 
   const copyCloneUrl = (url: string, name: string) => {
-    navigator.clipboard.writeText(url);
+    const cloneCmd = url.trim().startsWith("git clone") ? url.trim() : `git clone ${url.trim()}`;
+    navigator.clipboard.writeText(cloneCmd);
     toast({
       type: "success",
-      title: "Clone URL copied",
-      description: `${name} clone URL copied to clipboard.`,
+      title: "Clone command copied",
+      description: `"${cloneCmd}" for ${name} copied to clipboard.`,
       duration: 2000,
     });
   };
@@ -174,40 +175,41 @@ export function RepositoriesView({
               <div>
                 {/* Header: Name & Status */}
                 <div className="flex items-start justify-between mb-2.5">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-7 h-7 rounded-lg bg-canvas border border-subtle flex items-center justify-center text-primary group-hover:text-heading transition-colors">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-canvas border border-subtle flex items-center justify-center text-primary group-hover:text-heading transition-colors shrink-0">
                       <GitFork className="w-4 h-4" />
                     </div>
-                    <span className="font-semibold text-sm text-heading tracking-tight truncate max-w-[180px]">
+                    <span className="font-semibold text-sm text-heading tracking-tight truncate max-w-[170px]" title={repo.full_name}>
                       {repo.full_name}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-1.5">
+                  <div className="flex items-center space-x-1.5 shrink-0">
                     {repo.webhook_installed ? (
                       <button
                         type="button"
                         onClick={() => setWebhookModalRepo(repo)}
-                        className="inline-flex items-center space-x-1 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer"
-                        title="Webhook active. Click to view configuration."
+                        className="inline-flex items-center space-x-1 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary px-2.5 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer"
+                        title="Repository connected with active webhook guards. Click to view configuration."
                       >
                         <Check className="w-3 h-3" />
-                        <span>Webhook Active</span>
+                        <span>Connected</span>
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setWebhookModalRepo(repo)}
-                        className="inline-flex items-center space-x-1 bg-canvas hover:bg-subtle/60 border border-subtle hover:border-interactive text-muted hover:text-heading px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer"
-                        title="Webhook not verified. Click to configure or auto-install."
-                      >
-                        <Radio className="w-3 h-3 text-primary" />
-                        <span>Setup Webhook</span>
-                      </button>
+                      <>
+                        <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-muted px-2 py-0.5 rounded text-[10px] font-medium">
+                          <span>Connected</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setWebhookModalRepo(repo)}
+                          className="inline-flex items-center space-x-1 bg-canvas hover:bg-subtle border border-subtle hover:border-interactive text-heading px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                          title="Configure GitHub webhook for automatic PR and push scanning."
+                        >
+                          <Radio className="w-3 h-3 text-primary" />
+                          <span>Setup Webhook</span>
+                        </button>
+                      </>
                     )}
-                    <span className="inline-flex items-center space-x-1 bg-canvas border border-subtle text-primary px-2 py-0.5 rounded text-[10px] font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <span>Active</span>
-                    </span>
                   </div>
                 </div>
 
@@ -223,17 +225,21 @@ export function RepositoriesView({
                   </span>
                 </div>
 
-                {/* Clone URL Box */}
-                <div className="bg-canvas border border-subtle rounded-lg p-2 flex items-center justify-between text-xs text-muted font-mono mb-4">
-                  <span className="truncate max-w-[200px] text-[11px]">{repo.clone_url}</span>
+                {/* Git Clone Command Box */}
+                <div className="bg-canvas border border-subtle rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs text-muted font-mono mb-4">
+                  <div className="flex items-center space-x-1.5 min-w-0 overflow-hidden">
+                    <span className="text-primary font-semibold select-none">$</span>
+                    <span className="text-heading select-none font-medium">git clone</span>
+                    <span className="truncate text-[11px] text-muted">{repo.clone_url}</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => copyCloneUrl(repo.clone_url, repo.full_name)}
-                    className="w-6 h-6 rounded hover:bg-surface border border-transparent hover:border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors"
-                    title="Copy clone URL"
-                    aria-label="Copy clone URL"
+                    className="w-6 h-6 rounded hover:bg-surface border border-transparent hover:border-subtle flex items-center justify-center text-muted hover:text-heading transition-colors shrink-0 ml-1.5 cursor-pointer"
+                    title="Copy git clone command"
+                    aria-label="Copy git clone command"
                   >
-                    <Copy className="w-3 h-3" />
+                    <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -278,7 +284,7 @@ export function RepositoriesView({
                   <div className="flex items-center space-x-2">
                     <span className="flex items-center space-x-1 text-primary font-medium">
                       <Shield className="w-3 h-3" />
-                      <span>Mesh Protected</span>
+                      <span>Protected</span>
                     </span>
                     <span className="text-muted/40">•</span>
                     <span className="font-mono text-[10px] truncate max-w-[80px]">

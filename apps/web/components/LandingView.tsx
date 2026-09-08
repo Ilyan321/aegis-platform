@@ -599,7 +599,7 @@ export function LandingView() {
             </a>
           </div>
           <p className="text-[11px] text-muted">
-            Zero-Trust Credential Security Mesh. Open Source MIT License.
+            Zero-Trust Credential Security Platform. Open Source MIT License.
           </p>
         </div>
       </footer>

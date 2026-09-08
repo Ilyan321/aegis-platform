@@ -645,7 +645,7 @@ export default function DashboardPage() {
       <footer className="w-full bg-surface border-t border-subtle py-4 px-6 text-center text-xs text-muted">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <span className="font-mono text-[11px]">Aegis Platform v1.0.0</span>
-          <span>Zero-Dependency DevSecOps Intercept Mesh</span>
+          <span>Zero-Dependency DevSecOps Intercept Platform</span>
         </div>
       </footer>
 
