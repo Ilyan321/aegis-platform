@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { SettingsSkeleton } from "@/components/SettingsSkeleton";
+import { ShimmerBlock } from "@/components/DashboardSkeleton";
 import {
   updateUserProfile,
   changePassword,
@@ -153,16 +155,12 @@ function SettingsContent() {
   }, [activeTab, user]);
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   if (!user) {
     router.replace("/login");
-    return null;
+    return <SettingsSkeleton />;
   }
 
   // Password criteria check
@@ -1127,9 +1125,15 @@ function SettingsContent() {
                   </div>
 
                   {loadingAlerts ? (
-                    <div className="py-10 text-center space-y-2">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
-                      <p className="text-xs text-muted">Loading alert configuration...</p>
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-2">
+                        <ShimmerBlock className="w-40 h-3 rounded" delay={0.1} />
+                        <ShimmerBlock className="w-full h-10 rounded-xl" delay={0.15} />
+                      </div>
+                      <div className="flex justify-between items-center pt-2">
+                        <ShimmerBlock className="w-36 h-9 rounded-xl" delay={0.2} />
+                        <ShimmerBlock className="w-28 h-9 rounded-xl" delay={0.25} />
+                      </div>
                     </div>
                   ) : (
                     <form onSubmit={handleSaveAlerts} className="space-y-4">
@@ -1357,9 +1361,12 @@ function SettingsContent() {
                       </p>
 
                       {loadingCliToken ? (
-                        <div className="p-4 bg-canvas border border-subtle rounded-xl flex items-center justify-center space-x-2 text-xs text-muted">
-                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                          <span>Generating personal CLI token...</span>
+                        <div className="space-y-3 py-1">
+                          <ShimmerBlock className="w-full h-11 rounded-xl" delay={0.1} />
+                          <div className="flex justify-between items-center pt-1">
+                            <ShimmerBlock className="w-32 h-3 rounded" delay={0.15} />
+                            <ShimmerBlock className="w-48 h-3 rounded" delay={0.2} />
+                          </div>
                         </div>
                       ) : cliTokenData ? (
                         <div className="space-y-3">
@@ -1590,13 +1597,7 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-canvas flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      }
-    >
+    <Suspense fallback={<SettingsSkeleton />}>
       <SettingsContent />
     </Suspense>
   );
