@@ -28,7 +28,30 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
-      - key: GOOGLE_CLIENT_ID
+      - key: ENABLE_CELERY_WORKER
+        value: "true"
+      - key: CELERY_CONCURRENCY
+        value: "1"
+
+  # Optional Dedicated Background Worker Service for High-Throughput Scans
+  - type: worker
+    name: aegis-worker
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerContext: apps/api
+    dockerfilePath: apps/api/Dockerfile
+    dockerCommand: celery -A app.core.celery_app worker --loglevel=info --concurrency=2 --max-tasks-per-child=100
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
         sync: false
-      - key: GOOGLE_CLIENT_SECRET
+      - key: REDIS_URL
+        sync: false
+      - key: AEGIS_MASTER_KEY
+        sync: false
+      - key: AEGIS_BLIND_PEPPER
+        sync: false
+      - key: SLACK_WEBHOOK_URL
         sync: false

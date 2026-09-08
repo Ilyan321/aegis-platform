@@ -21,6 +21,11 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=600,  # 10 minutes max per repository scan
     worker_prefetch_multiplier=1,
+    broker_connection_retry_on_startup=True,
+    broker_connection_max_retries=5,
+    redis_socket_timeout=5.0,
+    redis_socket_connect_timeout=5.0,
+    worker_max_memory_per_child=200000,  # Recycle worker process if exceeding 200MB
 )
 
 # If using rediss:// (Upstash TLS), configure SSL options

@@ -9,10 +9,11 @@ if [ -f "alembic.ini" ]; then
     alembic upgrade head || echo "Migration warning: Database may not be ready or migrations already applied"
 fi
 
-# Start Celery worker in background if REDIS_URL is provided
-if [ -n "$REDIS_URL" ]; then
-    echo "Starting Celery worker in background..."
-    celery -A app.core.celery_app worker --loglevel=info --concurrency=2 &
+# Start Celery worker in background if REDIS_URL is provided and ENABLE_CELERY_WORKER is not disabled
+if [ -n "$REDIS_URL" ] && [ "${ENABLE_CELERY_WORKER:-true}" = "true" ]; then
+    CONCURRENCY=${CELERY_CONCURRENCY:-1}
+    echo "Starting Celery worker in background (concurrency: $CONCURRENCY)..."
+    celery -A app.core.celery_app worker --loglevel=warning --concurrency="$CONCURRENCY" --max-tasks-per-child=50 &
 fi
 
 # Start FastAPI server
