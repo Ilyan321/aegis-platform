@@ -30,6 +30,9 @@ import {
   fetchOrganizations,
   updateIncidentStatus,
   bulkUpdateIncidentStatus,
+  deleteIncident,
+  bulkDeleteIncidents,
+  cleanDuplicateIncidents,
   triggerScanAllRepositories,
   resendOtp,
   getOAuthUrl,
@@ -48,6 +51,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isScanningAll, setIsScanningAll] = useState(false);
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
   const [resendingOtp, setResendingOtp] = useState(false);
 
   const handleResendVerification = async () => {
@@ -231,6 +235,94 @@ export default function DashboardPage() {
         title: "Bulk update failed",
         description: "Could not synchronize bulk triage with control plane.",
       });
+    }
+  };
+
+  // Delete Single Incident Handler
+  const handleDeleteIncident = async (id: string) => {
+    // Optimistic local removal
+    setIncidents((prev) => prev.filter((inc) => inc.id !== id));
+    if (selectedIncident?.id === id) {
+      setSelectedIncident(null);
+    }
+
+    try {
+      await deleteIncident(id);
+      fetchTelemetry(user?.organization_id || undefined).then((t) => t && setTelemetry(t)).catch(() => {});
+      toast({
+        type: "info",
+        title: "Incident deleted",
+        description: "Incident record has been purged from workspace.",
+      });
+    } catch (err) {
+      console.error("Failed to delete incident, reverting:", err);
+      loadDashboardData(user?.organization_id);
+      toast({
+        type: "error",
+        title: "Delete failed",
+        description: "Could not remove incident from control plane.",
+      });
+    }
+  };
+
+  // Bulk Delete Incidents Handler
+  const handleBulkDelete = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+
+    // Optimistic local removal
+    setIncidents((prev) => prev.filter((inc) => !idSet.has(inc.id)));
+    if (selectedIncident && idSet.has(selectedIncident.id)) {
+      setSelectedIncident(null);
+    }
+
+    try {
+      await bulkDeleteIncidents(ids);
+      fetchTelemetry(user?.organization_id || undefined).then((t) => t && setTelemetry(t)).catch(() => {});
+      toast({
+        type: "info",
+        title: `Deleted ${ids.length} incidents`,
+        description: `Successfully purged ${ids.length} findings from audit trail.`,
+      });
+    } catch (err) {
+      console.error("Bulk delete failed, reverting:", err);
+      loadDashboardData(user?.organization_id);
+      toast({
+        type: "error",
+        title: "Bulk delete failed",
+        description: "Could not synchronize deletion with control plane.",
+      });
+    }
+  };
+
+  // One-Click Workspace Duplicate Cleaner Handler
+  const handleCleanDuplicates = async () => {
+    setIsCleaningDuplicates(true);
+    try {
+      const res = await cleanDuplicateIncidents();
+      await loadDashboardData(user?.organization_id);
+      if (res.duplicates_removed > 0) {
+        toast({
+          type: "success",
+          title: "Duplicates purged",
+          description: `Successfully pruned ${res.duplicates_removed} duplicate findings. Workspace now has ${res.remaining_incidents} unique incidents.`,
+        });
+      } else {
+        toast({
+          type: "info",
+          title: "No duplicates found",
+          description: "All incidents in your workspace are unique.",
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to clean duplicates";
+      toast({
+        type: "error",
+        title: "Deduplication failed",
+        description: message,
+      });
+    } finally {
+      setIsCleaningDuplicates(false);
     }
   };
 
@@ -498,6 +590,8 @@ export default function DashboardPage() {
                   totalCount={filteredIncidents.length}
                   onTriggerScan={handleTriggerCloudScan}
                   isScanning={isScanningAll}
+                  onCleanDuplicates={handleCleanDuplicates}
+                  isCleaningDuplicates={isCleaningDuplicates}
                 />
 
                 {/* Incident Forensic Ledger */}
@@ -507,6 +601,8 @@ export default function DashboardPage() {
                   onSelectIncident={(inc) => setSelectedIncident(inc)}
                   onTriageStatus={handleTriageStatus}
                   onBulkStatus={handleBulkStatus}
+                  onDeleteIncident={handleDeleteIncident}
+                  onBulkDelete={handleBulkDelete}
                 />
               </>
             )}

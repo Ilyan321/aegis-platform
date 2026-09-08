@@ -17,8 +17,11 @@ from app.models.repository import Repository
 from app.models.user import User
 from app.schemas.audit import IncidentAuditRead
 from app.schemas.incident import (
+    BulkIncidentDeleteRequest,
+    BulkIncidentDeleteResponse,
     BulkIncidentStatusResponse,
     BulkIncidentStatusUpdate,
+    CleanDuplicatesResponse,
     IncidentRead,
     IncidentStatusUpdate,
 )
@@ -364,5 +367,110 @@ async def bulk_update_incidents_status(
         status=bulk_data.status,
         incident_ids=updated_ids,
     )
+
+
+@router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete an incident")
+async def delete_incident(
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Incident)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .where(Incident.id == incident_id)
+    )
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+
+    result = await db.execute(stmt)
+    incident = result.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+
+    await db.delete(incident)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/bulk-delete", response_model=BulkIncidentDeleteResponse, summary="Bulk delete incidents")
+async def bulk_delete_incidents(
+    bulk_data: BulkIncidentDeleteRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Incident)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .where(Incident.id.in_(bulk_data.incident_ids))
+    )
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+
+    result = await db.execute(stmt)
+    incidents = result.scalars().all()
+
+    if not incidents:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No accessible incidents found for the provided IDs",
+        )
+
+    deleted_ids = []
+    for inc in incidents:
+        deleted_ids.append(inc.id)
+        await db.delete(inc)
+
+    await db.commit()
+    return BulkIncidentDeleteResponse(
+        deleted_count=len(deleted_ids),
+        incident_ids=deleted_ids,
+    )
+
+
+@router.post("/clean-duplicates", response_model=CleanDuplicatesResponse, summary="Deduplicate historical incident rows")
+async def clean_duplicate_incidents(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cleans up duplicate historical incidents by grouping by (repository_id, rule_id, file_path, masked_snippet),
+    keeping the latest record, and removing stale duplicate rows.
+    """
+    stmt = (
+        select(Incident)
+        .join(Repository, Incident.repository_id == Repository.id)
+        .order_by(Incident.last_seen_at.desc())
+    )
+    if current_user.organization_id:
+        stmt = stmt.where(Repository.organization_id == current_user.organization_id)
+
+    result = await db.execute(stmt)
+    all_incidents = result.scalars().all()
+
+    seen_signatures = set()
+    to_delete = []
+
+    for inc in all_incidents:
+        norm_path = inc.file_path.replace("\\", "/").lstrip("./")
+        # Unique signature for finding in repo
+        sig = (str(inc.repository_id), inc.rule_id, norm_path, inc.masked_snippet)
+        if sig in seen_signatures:
+            to_delete.append(inc)
+        else:
+            seen_signatures.add(sig)
+
+    deleted_count = len(to_delete)
+    for inc in to_delete:
+        await db.delete(inc)
+
+    await db.commit()
+
+    return CleanDuplicatesResponse(
+        duplicates_removed=deleted_count,
+        remaining_incidents=len(seen_signatures),
+        message=f"Successfully pruned {deleted_count} duplicate rows. {len(seen_signatures)} canonical incidents active.",
+    )
+
 
 

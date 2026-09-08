@@ -48,3 +48,18 @@ class BulkIncidentStatusResponse(BaseModel):
     status: str
     incident_ids: list[uuid.UUID]
 
+
+class BulkIncidentDeleteRequest(BaseModel):
+    incident_ids: list[uuid.UUID] = Field(..., min_length=1, max_length=500)
+
+
+class BulkIncidentDeleteResponse(BaseModel):
+    deleted_count: int
+    incident_ids: list[uuid.UUID]
+
+
+class CleanDuplicatesResponse(BaseModel):
+    duplicates_removed: int
+    remaining_incidents: int
+    message: str
+

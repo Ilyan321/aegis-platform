@@ -231,6 +231,38 @@ export async function bulkUpdateIncidentStatus(
   });
 }
 
+export async function deleteIncident(id: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/incidents/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  incident_ids: string[];
+}
+
+export async function bulkDeleteIncidents(incidentIds: string[]): Promise<BulkDeleteResponse> {
+  return apiFetch<BulkDeleteResponse>("/api/v1/incidents/bulk-delete", {
+    method: "POST",
+    body: JSON.stringify({
+      incident_ids: incidentIds,
+    }),
+  });
+}
+
+export interface CleanDuplicatesResponse {
+  duplicates_removed: number;
+  remaining_incidents: number;
+  message: string;
+}
+
+export async function cleanDuplicateIncidents(): Promise<CleanDuplicatesResponse> {
+  return apiFetch<CleanDuplicatesResponse>("/api/v1/incidents/clean-duplicates", {
+    method: "POST",
+  });
+}
+
 export async function fetchIncidentAudits(id: string): Promise<IncidentAudit[]> {
   return apiFetch<IncidentAudit[]>(`/api/v1/incidents/${id}/audits`);
 }

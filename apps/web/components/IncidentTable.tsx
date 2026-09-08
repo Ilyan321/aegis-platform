@@ -21,6 +21,7 @@ import {
   XCircle,
   Loader2,
   X,
+  Trash2,
 } from "lucide-react";
 import { Incident, downloadComplianceExport } from "@/lib/api";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
@@ -32,6 +33,8 @@ interface IncidentTableProps {
   onSelectIncident: (inc: Incident) => void;
   onTriageStatus: (id: string, newStatus: "RESOLVED" | "DISMISSED") => void;
   onBulkStatus?: (ids: string[], newStatus: "RESOLVED" | "DISMISSED") => Promise<void>;
+  onDeleteIncident?: (id: string) => Promise<void>;
+  onBulkDelete?: (ids: string[]) => Promise<void>;
 }
 
 type SortField = "severity" | "rule_name" | "file_path" | "verification_status" | "commit_sha" | "last_seen_at";
@@ -50,6 +53,8 @@ export function IncidentTable({
   onSelectIncident,
   onTriageStatus,
   onBulkStatus,
+  onDeleteIncident,
+  onBulkDelete,
 }: IncidentTableProps) {
   const [sortField, setSortField] = useState<SortField>("last_seen_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -58,7 +63,7 @@ export function IncidentTable({
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkActionLoading, setBulkActionLoading] = useState<"RESOLVED" | "DISMISSED" | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState<"RESOLVED" | "DISMISSED" | "DELETE" | null>(null);
 
   // Keyboard navigation
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -624,36 +629,51 @@ export function IncidentTable({
 
                     {/* Triage Actions */}
                     <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                      {!isResolved ? (
-                        <div className="flex items-center justify-end space-x-2">
+                      <div className="flex items-center justify-end space-x-1.5">
+                        {!isResolved ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTriageStatus(inc.id, "RESOLVED");
+                              }}
+                              title="Mark Resolved (e)"
+                              className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded-lg font-medium transition-colors cursor-pointer"
+                            >
+                              Resolve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTriageStatus(inc.id, "DISMISSED");
+                              }}
+                              title="Dismiss as False Positive"
+                              className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded-lg transition-colors cursor-pointer"
+                            >
+                              Dismiss
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-muted font-medium italic mr-1">
+                            {inc.status}
+                          </span>
+                        )}
+                        {onDeleteIncident && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onTriageStatus(inc.id, "RESOLVED");
+                              onDeleteIncident(inc.id);
                             }}
-                            title="Mark Resolved (e)"
-                            className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded-lg font-medium transition-colors cursor-pointer"
+                            title="Delete Incident"
+                            className="p-1 text-muted hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
                           >
-                            Resolve
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onTriageStatus(inc.id, "DISMISSED");
-                            }}
-                            title="Dismiss as False Positive"
-                            className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded-lg transition-colors cursor-pointer"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-muted font-medium italic">
-                          {inc.status}
-                        </span>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -758,6 +778,30 @@ export function IncidentTable({
                 )}
                 <span>Dismiss All</span>
               </button>
+
+              {onBulkDelete && (
+                <button
+                  type="button"
+                  disabled={bulkActionLoading !== null}
+                  onClick={async () => {
+                    setBulkActionLoading("DELETE");
+                    try {
+                      await onBulkDelete(Array.from(selectedIds));
+                      setSelectedIds(new Set());
+                    } finally {
+                      setBulkActionLoading(null);
+                    }
+                  }}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-medium bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {bulkActionLoading === "DELETE" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>Delete Selected</span>
+                </button>
+              )}
 
               <button
                 type="button"

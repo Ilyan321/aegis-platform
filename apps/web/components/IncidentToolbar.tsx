@@ -12,6 +12,8 @@ interface IncidentToolbarProps {
   totalCount: number;
   onTriggerScan?: () => void;
   isScanning?: boolean;
+  onCleanDuplicates?: () => void;
+  isCleaningDuplicates?: boolean;
 }
 
 export function IncidentToolbar({
@@ -23,6 +25,8 @@ export function IncidentToolbar({
   totalCount,
   onTriggerScan,
   isScanning = false,
+  onCleanDuplicates,
+  isCleaningDuplicates = false,
 }: IncidentToolbarProps) {
   const tabs = [
     { id: "ALL", label: "All Incidents" },
@@ -75,6 +79,22 @@ export function IncidentToolbar({
             className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface border border-subtle rounded-lg text-heading placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-interactive transition-all"
           />
         </div>
+
+        {/* Clean Duplicates Button */}
+        {onCleanDuplicates && (
+          <button
+            type="button"
+            onClick={onCleanDuplicates}
+            disabled={isCleaningDuplicates}
+            className="flex items-center space-x-1.5 bg-canvas hover:bg-subtle text-heading border border-subtle px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
+            title="Clean historical duplicate incidents across workspace"
+          >
+            {isCleaningDuplicates ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+            ) : null}
+            <span>{isCleaningDuplicates ? "Pruning..." : "Deduplicate"}</span>
+          </button>
+        )}
 
         {/* Scan on Demand Button */}
         {onTriggerScan && (
