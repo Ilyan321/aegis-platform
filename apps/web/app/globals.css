@@ -3,11 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --canvas: #E6F4F3;
+  --canvas: #F4F7F6;
   --surface: #FFFFFF;
-  --heading: #0D3B39;
-  --muted: #4D6F6D;
-  --border: #BEE7E3;
+  --heading: #011936;
+  --muted: #465362;
+  --border: #D8E2E1;
+  --sage: #82A3A1;
+  --accent: #9FC490;
+  --accent-soft: #C0DFA1;
 }
 
 body {
@@ -18,29 +21,29 @@ body {
 }
 
 ::selection {
-  background-color: #BEE7E3;
-  color: #0D3B39;
+  background-color: #C0DFA1;
+  color: #011936;
 }
 
 /* Precision hairline borders and solid cards */
 .aegis-card {
   background-color: #FFFFFF;
-  border: 1px solid #BEE7E3;
+  border: 1px solid #D8E2E1;
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgba(13, 59, 57, 0.04);
+  box-shadow: 0 1px 3px 0 rgba(1, 25, 54, 0.04);
 }
 
 .aegis-card-interactive {
   background-color: #FFFFFF;
-  border: 1px solid #BEE7E3;
+  border: 1px solid #D8E2E1;
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgba(13, 59, 57, 0.04);
+  box-shadow: 0 1px 3px 0 rgba(1, 25, 54, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .aegis-card-interactive:hover {
-  border-color: #40B3A6;
-  box-shadow: 0 4px 12px 0 rgba(13, 59, 57, 0.07);
+  border-color: #82A3A1;
+  box-shadow: 0 4px 12px 0 rgba(1, 25, 54, 0.07);
 }
 
 /* High-Fidelity Cascading Shimmer Light Sweep */
@@ -56,7 +59,7 @@ body {
 .shimmer-block {
   position: relative;
   overflow: hidden;
-  background-color: #D3EFEB;
+  background-color: #E2ECEB;
 }
 
 .shimmer-block::after {
@@ -68,9 +71,9 @@ body {
   transform: translateX(-100%);
   background: linear-gradient(
     90deg,
-    rgba(211, 239, 235, 0) 0%,
+    rgba(226, 236, 235, 0) 0%,
     rgba(255, 255, 255, 0.85) 50%,
-    rgba(211, 239, 235, 0) 100%
+    rgba(226, 236, 235, 0) 100%
   );
   animation: shimmerWave 1.6s ease-in-out infinite;
   content: "";
@@ -79,7 +82,7 @@ body {
 .shimmer-placeholder {
   position: relative;
   overflow: hidden;
-  background-color: #D3EFEB;
+  background-color: #E2ECEB;
 }
 
 .shimmer-placeholder::after {
@@ -91,9 +94,9 @@ body {
   transform: translateX(-100%);
   background: linear-gradient(
     90deg,
-    rgba(211, 239, 235, 0) 0%,
+    rgba(226, 236, 235, 0) 0%,
     rgba(255, 255, 255, 0.85) 50%,
-    rgba(211, 239, 235, 0) 100%
+    rgba(226, 236, 235, 0) 100%
   );
   animation: shimmerWave 1.6s ease-in-out infinite;
   content: "";
@@ -111,14 +114,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #E6F4F3;
+  background: #F4F7F6;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #BEE7E3;
+  background: #D8E2E1;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #40B3A6;
+  background: #82A3A1;
 }

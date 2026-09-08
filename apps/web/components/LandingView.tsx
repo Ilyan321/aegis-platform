@@ -189,7 +189,7 @@ export function LandingView() {
           <div className="lg:col-span-5 space-y-4">
             {/* Terminal Block */}
             <div className="bg-heading rounded-xl border border-heading overflow-hidden shadow-elevated">
-              <div className="bg-[#082A28] px-4 py-2.5 flex items-center justify-between border-b border-heading/40">
+              <div className="bg-[#000F24] px-4 py-2.5 flex items-center justify-between border-b border-heading/40">
                 <div className="flex items-center space-x-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />

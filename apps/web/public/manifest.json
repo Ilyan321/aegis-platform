@@ -4,8 +4,8 @@
   "description": "Open-source secret detection and incident response platform for engineering teams.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090d0d",
-  "theme_color": "#0D3B39",
+  "background_color": "#F4F7F6",
+  "theme_color": "#011936",
   "orientation": "portrait-primary",
   "icons": [
     {

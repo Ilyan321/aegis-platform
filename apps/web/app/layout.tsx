@@ -10,7 +10,7 @@ const DESCRIPTION =
   "Aegis is the open-source DevSecOps control plane that detects leaked secrets in your Git repos, triages incidents in real-time, and auto-remediates before attackers can act. Connect GitHub in 60 seconds.";
 
 export const viewport: Viewport = {
-  themeColor: "#0D3B39",
+  themeColor: "#011936",
   width: "device-width",
   initialScale: 1,
 };
