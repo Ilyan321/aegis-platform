@@ -413,7 +413,7 @@ export function LandingView() {
                 <GitCommit className="w-4 h-4" />
               </div>
               <div className="text-heading font-semibold">
-                $ aegis hook install
+                $ aegis init
               </div>
               <p className="text-[11px] text-muted font-sans leading-relaxed">
                 Sets up executable pre-commit intercept hooks in the active Git repository.
