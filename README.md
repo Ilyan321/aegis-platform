@@ -1,203 +1,222 @@
-# Aegis Platform (`aegis-platform`)
+# Aegis Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Architecture: Cloud Native](https://img.shields.io/badge/Architecture-Event--Driven-emerald.svg)]()
-[![Stack: FastAPI + Next.js 15](https://img.shields.io/badge/Stack-FastAPI%20%2B%20Next.js%2015-violet.svg)]()
-[![Design: Apple / Linear Crafted](https://img.shields.io/badge/Design-Apple%20Craftsmanship-teal.svg)]()
+[![Dashboard](https://img.shields.io/badge/Live_Dashboard-aegis--platform.ilyankhan.tech-teal.svg)](https://aegis-platform.ilyankhan.tech)
+[![API Status](https://img.shields.io/badge/API_Status-Online-emerald.svg)](https://aegis-platform-wwgp.onrender.com/health)
+[![Go Version](https://img.shields.io/badge/Go-1.22+-blue.svg)](https://golang.org)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.115+-009688.svg)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js_15-black.svg)](https://nextjs.org)
 
-The centralized, cloud-native control plane and orchestration fabric for the **Aegis** security ecosystem.
+Aegis is an open-source secret detection and incident management platform. It prevents developers from accidentally committing API keys, database credentials, tokens, and private keys to git repositories.
 
-While `aegis-cli` acts as the edge-level sensor running on workstations and CI runners, `aegis-platform` serves as the central brain: aggregating distributed scan telemetries, managing enterprise repository integrations via GitHub webhooks, orchestrating asynchronous deep scans across remote codebases, tracking credential lifecycle states, dispatching instant incident alerts to Slack channels, and hosting an Apple/Linear-grade operational dashboard.
+Aegis works in two complementary layers:
+1. **Local Pre-Commit Guard**: A zero-dependency Go CLI (`aegis`) that intercepts leaks on developer machines in under 10ms before `git commit` finishes.
+2. **Central Control Plane**: A web dashboard and API backend that automatically scans pushes via GitHub webhooks, verifies whether leaked credentials are active, sends Slack notifications, and manages incident lifecycles.
 
 ---
 
-## 🏗️ Architecture & Monorepo Structure
+## Live Deployments
+
+- **Web Dashboard**: [https://aegis-platform.ilyankhan.tech](https://aegis-platform.ilyankhan.tech)
+- **API Documentation**: [https://aegis-platform-wwgp.onrender.com/docs](https://aegis-platform-wwgp.onrender.com/docs)
+- **API Health Check**: [https://aegis-platform-wwgp.onrender.com/health](https://aegis-platform-wwgp.onrender.com/health)
+
+---
+
+## Key Capabilities
+
+### 1. Instant Local Secret Interception
+- Pure Go binary with zero external runtime dependencies.
+- Runs in under 10 milliseconds during `git commit` hooks.
+- Detects over 40+ credential formats (AWS, GitHub, OpenAI, Anthropic, Stripe, Slack, private keys, database connection strings, JWTs).
+- Masks secrets in terminal output to prevent secondary exposure in shell history or CI logs.
+
+### 2. Automated Git Push Scanning
+- Native GitHub Webhook integration (`push` events).
+- Clones and scans commits asynchronously in the background using Celery task workers.
+- Automatically tracks regressions if a previously resolved secret reappears in new commits.
+
+### 3. Active Credential Verification
+- Safely probes provider APIs (e.g. AWS STS, GitHub API, OpenAI, Slack) to determine if a detected token is live, revoked, or unverifiable.
+- Tags incidents as `ACTIVE` (requires immediate revocation) or `REVOKED`.
+
+### 4. Zero-Plaintext Encrypted Storage
+- Secrets are never stored in plaintext in the database.
+- Uses AES-256-GCM envelope encryption with authenticated validation tags.
+- Uses HMAC-SHA256 blind indexing to allow searching and deduplication without decrypting database records.
+
+### 5. Centralized Incident Triage & Alerts
+- Sends rich Block Kit notifications to Slack channels on critical leaks.
+- Web dashboard with search, status filtering, severity badges, and quick triage actions (`RESOLVE`, `DISMISS`, `REGRESSION`).
+- Built-in Command Palette (`Cmd + K` / `Ctrl + K`) for keyboard navigation.
+
+---
+
+## Quickstart: Install the CLI
+
+Install the Aegis CLI on Linux or macOS with a single command:
+
+```bash
+curl -sSL https://aegis-platform.ilyankhan.tech/install.sh | bash
+```
+
+For Windows PowerShell:
+
+```powershell
+iwr -useb https://aegis-platform.ilyankhan.tech/install.ps1 | iex
+```
+
+### Basic CLI Commands
+
+```bash
+# Scan the current directory for secrets
+aegis scan .
+
+# Scan git staged files only
+aegis scan --staged
+
+# Install the automatic pre-commit hook in the current repository
+aegis hook install
+
+# Check hook status
+aegis hook status
+
+# Verify binary installation and version
+aegis version
+```
+
+---
+
+## System Architecture
+
+```text
+[ Developer Workstation ]
+        │
+        ▼ (git commit pre-commit hook)
+  [ aegis CLI (<10ms local scan) ]
+        │
+  (Code pushed to GitHub)
+        │
+        ▼ (Push Webhook)
+  [ FastAPI 0.115+ Backend ] ─── (Render Web Service)
+        │
+        ├─► [ Celery Task Queue ] ──► [ Upstash Redis TLS ]
+        │          │
+        │          ▼ (Async Background Worker)
+        │     [ Clone & Deep Scan ]
+        │          │
+        │          ├─► [ Live Credential Verification ]
+        │          └─► [ Slack Incident Alert ]
+        │
+        ├─► [ Neon PostgreSQL 16 ] (Encrypted via AES-256-GCM)
+        │
+        └─► [ Next.js 15 Dashboard ] (Vercel Frontend)
+```
+
+---
+
+## Repository Layout
 
 ```text
 aegis-platform/
 ├── apps/
-│   ├── api/                 # FastAPI 0.115+ Backend & Celery Worker (Python 3.12+)
+│   ├── api/                 # FastAPI backend & Celery worker (Python 3.12+)
 │   │   ├── app/             # Application source (api, core, models, schemas, services, workers)
-│   │   │   ├── api/v1/      # REST endpoints (incidents, repos, telemetry, webhooks, orgs)
-│   │   │   ├── core/        # Config, Dual-Cipher crypto engine, Celery app, DB session
-│   │   │   ├── models/      # SQLAlchemy 2.0 async ORM models
-│   │   │   ├── schemas/     # Pydantic v2 schemas
-│   │   │   ├── services/    # Slack notifications, Webhook HMAC-SHA256 auth
-│   │   │   └── workers/     # Celery asynchronous scanner task (idempotency, clone, triage)
-│   │   ├── bin/             # Bundled standalone pure Go aegis-cli binary (Linux ELF x86_64)
-│   │   ├── Dockerfile       # Container definition for Render cloud web service
-│   │   ├── requirements.txt # Python dependencies
-│   │   └── start.sh         # Startup script (Alembic + Celery + Uvicorn)
-│   └── web/                 # Next.js 15 (React 19, Tailwind CSS, Lucide, cmdk) Frontend
-│       ├── app/             # App Router pages, layout, and custom teal design system
-│       ├── components/      # Apple-crafted components (Navbar, TelemetryCards, IncidentTable,
-│       │                    # IncidentToolbar, IncidentDetailModal, OnboardModal, CommandMenu)
-│       └── lib/             # Typed API client and helpers
-├── deploy/                  # Cloud & local deployment manifests
-│   ├── docker-compose.yml   # Multi-service local dev composition
-│   ├── init.sql             # PostgreSQL extensions initialization (uuid, pgcrypto)
-│   ├── render.yaml          # Render blueprint for 1-click cloud backend deployment
-│   └── vercel.json          # Vercel deployment specification for Next.js frontend
-├── AEGIS_CLI_SPEC.md        # Technical data contract & JSON schema for aegis-cli
-├── PRD.md                   # Product Requirements Document
-├── render.yaml              # Root Render blueprint manifest
+│   │   ├── bin/             # Bundled standalone pure Go aegis-cli binary (Linux x86_64)
+│   │   ├── Dockerfile       # Container definition for cloud deployment
+│   │   └── requirements.txt # Python dependencies
+│   │
+│   └── web/                 # Next.js 15 (React 19, Tailwind CSS) Frontend
+│       ├── app/             # App Router pages (Dashboard, Incidents, Settings, Telemetry)
+│       ├── components/      # UI components (IncidentTable, CommandMenu, Skeletons)
+│       └── lib/             # API client and TypeScript definitions
+│
+├── deploy/                  # Deployment manifests
+│   ├── docker-compose.yml   # Multi-service local development setup
+│   ├── render.yaml          # Render cloud blueprint specification
+│   └── vercel.json          # Vercel frontend specification
+│
+├── install.sh               # POSIX install script for Linux/macOS
+├── install.ps1              # PowerShell install script for Windows
+├── LICENSE                  # MIT License
 └── package.json             # Root npm workspace configuration
 ```
 
 ---
 
-## 🎨 Apple-Crafted UI/UX Design System
+## Running Locally
 
-The Aegis dashboard is built with disciplined Apple and Linear software design standards:
-- **No glassmorphism, no artificial blur, and no multi-color gradient slop.**
-- **Solid, crisp, high-contrast surfaces** with 1px hairline borders (`#BEE7E3`).
-- **Generous 8pt spatial rhythm** to prevent clustered or cramped UI elements.
-- **Precision 8-color palette**:
-  | Token | Hex | Role |
-  | :--- | :--- | :--- |
-  | `canvas` | `#E6F4F3` | Page background canvas |
-  | `subtle` | `#BEE7E3` | Hairline dividers and borders |
-  | `accent` | `#7ED2CC` | Secondary indicator & pill highlights |
-  | `interactive` | `#40B3A6` | Focus rings, active states, borders |
-  | `primary` | `#16857A` | Brand actions, primary CTA buttons |
-  | `heading` | `#0D3B39` | High-contrast typography & dark accents |
-  | `muted` | `#4D6F6D` | Secondary labels, descriptions, and timestamps |
-  | `surface` | `#FFFFFF` | Solid card backgrounds and modal containers |
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.11+
+- Go 1.22+ (optional, for compiling the CLI)
+- Docker & Docker Compose (optional, for local DB and Redis)
 
----
-
-## ☁️ 100% Free Cloud Deployment Topology
-
-The entire platform operates on **100% free cloud tiers**:
-
-```
-[GitHub Webhook / Push Event]
-             │
-             ▼ (<35ms HMAC ACK)
-   [Render Free Web Service] ─── (Keep-alive ping every 10 min via cron-job.org)
-      FastAPI 0.115+
-             │
-      ┌──────┴──────────────────────────┐
-      │ Celery Task Queue               │ Dual-Cipher Cryptography
-      ▼                                 ▼ (AES-256-GCM + HMAC-SHA256)
- [Upstash Redis TLS]               [Neon PostgreSQL 16]
- (Serverless Free Tier)            (Serverless Free Tier)
-      │
-      ▼ (Background Worker)
- [aegis-cli Standalone Runner]
-      │
-      ├─► [Slack Incoming Webhook] ───► #aegis-platform Channel (Block Kit Alert)
-      │
-      └─► [Vercel Next.js 15 UI]  ───► Real-time Triage & Command Palette (Cmd+K)
-```
-
----
-
-## 🚀 Step-by-Step Cloud Deployment Guide
-
-### Step 1: Database (Neon PostgreSQL)
-1. Create a free account at [neon.tech](https://neon.tech).
-2. Create a project named `aegis-platform` on PostgreSQL 16.
-3. Obtain your async connection string:
-   ```text
-   postgresql+asyncpg://<user>:<password>@<neon-host>/<db>?ssl=require
-   ```
-4. Migrations are executed automatically by `apps/api/start.sh` upon service startup.
-
-### Step 2: Message Broker & Cache (Upstash Redis)
-1. Create a free account at [upstash.com](https://upstash.com).
-2. Create a Redis database (e.g. US East region).
-3. Copy the **rediss://** connection URL (TLS enabled on port 6379):
-   ```text
-   rediss://default:<token>@<host>.upstash.io:6379/0
-   ```
-
-### Step 3: Slack Incoming Webhook
-1. In your Slack workspace, create or open an app at [api.slack.com/apps](https://api.slack.com/apps).
-2. Enable **Incoming Webhooks**.
-3. Click **Add New Webhook to Workspace** and select your alerts channel (e.g., `#aegis-platform`).
-4. Copy the Webhook URL:
-   ```text
-   https://hooks.slack.com/services/T.../B.../...
-   ```
-
-### Step 4: Backend Deployment (Render)
-1. Sign in to [render.com](https://render.com).
-2. Click **New +** ➔ **Blueprint** (or **Web Service**).
-3. Connect your GitHub repository `Ilyan321/aegis-platform`.
-4. Render will read `render.yaml` automatically. Configure the environment variables:
-   - `DATABASE_URL`: Your Neon asyncpg URL (`postgresql+asyncpg://...`)
-   - `REDIS_URL`: Your Upstash rediss URL (`rediss://...`)
-   - `SLACK_WEBHOOK_URL`: Your Slack Webhook URL
-   - `AEGIS_MASTER_KEY`: 64-character hex string (Render auto-generates this)
-   - `AEGIS_BLIND_PEPPER`: 32+ character random string (Render auto-generates this)
-5. Click **Apply**. Render will build the Docker container and start FastAPI + Celery concurrently.
-6. Note your Render URL: `https://aegis-api.onrender.com`.
-
-### Step 5: Keep-Alive Heartbeat (Preventing Render Cold Starts)
-Render free tier web services spin down after 15 minutes of inactivity. To keep your API and worker warm 24/7 with zero cost:
-1. Register for a free account at [cron-job.org](https://cron-job.org) or [uptimerobot.com](https://uptimerobot.com).
-2. Create a new HTTP monitor:
-   - **URL**: `https://aegis-api.onrender.com/health`
-   - **Schedule**: Every 10 minutes (`*/10 * * * *`)
-   - **Method**: `GET`
-3. Aegis responds in <5ms with `{"status":"healthy","service":"aegis-api"}` keeping the instance permanently awake.
-
-### Step 6: Frontend Deployment (Vercel)
-1. Sign in to [vercel.com](https://vercel.com) and click **Add New Project**.
-2. Import the `Ilyan321/aegis-platform` repository.
-3. In project settings:
-   - **Root Directory**: `apps/web`
-   - **Framework Preset**: `Next.js`
-4. Add the Environment Variable:
-   - `NEXT_PUBLIC_API_URL`: `https://aegis-api.onrender.com`
-5. Click **Deploy**. Vercel will build and publish your Next.js 15 dashboard.
-
-### Step 7: GitHub Webhook Setup
-To automate continuous scanning on every code push:
-1. Navigate to your target repository on GitHub ➔ **Settings** ➔ **Webhooks** ➔ **Add webhook**.
-2. Set **Payload URL**: `https://aegis-api.onrender.com/api/v1/webhooks/github`
-3. Set **Content type**: `application/json`
-4. Set **Secret**: Your repository's webhook secret (matches `webhook_secret` registered in Aegis).
-5. Select events: **Just the `push` event**.
-6. Save webhook. Every push will trigger an immediate, authenticated scan with zero developer friction.
-
----
-
-## 🔒 Security & Cryptographic Architecture
-
-Aegis implements an enterprise-grade **Dual-Cipher Cryptography Engine** (`apps/api/app/core/crypto.py`):
-- **AES-256-GCM Envelope Encryption**: Raw secrets detected during scans are never stored in plaintext. They are encrypted using unique 96-bit nonces with authenticated tag validation.
-- **HMAC-SHA256 Blind Indexing**: Allows searching and indexing known secrets without ever decrypting database records.
-- **SHA-256 Deterministic Fingerprinting**: Generates collision-resistant identifiers based on `hash(repo_id + rule_id + relative_path + normalized_token)`.
-- **Idempotency & Auto-Resolution Sweep**: Automatically transitions resolved secrets to `RESOLVED` when removed in subsequent commits, and raises immediate `REGRESSION` alerts if previously resolved credentials reappear.
-
----
-
-## 💻 Local Development
-
+### 1. Clone the repository
 ```bash
-# Clone the repository
 git clone https://github.com/Ilyan321/aegis-platform.git
 cd aegis-platform
+```
 
-# Install dependencies
-npm install
-
-# Start local dependencies via Docker Compose
+### 2. Start local infrastructure (PostgreSQL & Redis)
+```bash
 docker compose -f deploy/docker-compose.yml up -d
+```
 
-# Run API backend locally
+### 3. Start the API Backend
+```bash
 cd apps/api
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ./start.sh
+```
+The API will be available at `http://localhost:8000`. Interactive OpenAPI documentation will be at `http://localhost:8000/docs`.
 
-# Run Next.js frontend locally (in another terminal)
-cd apps/web
+### 4. Start the Web Dashboard
+```bash
+cd ../../apps/web
+npm install
 npm run dev
 ```
+The dashboard will be available at `http://localhost:3000`.
 
-Visit `http://localhost:3000` to interact with the dashboard.
-API documentation is available at `http://localhost:8000/docs`.
+---
+
+## Environment Variables
+
+### Backend (`apps/api/.env`)
+
+| Variable | Description | Default |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL async connection string (`postgresql+asyncpg://...`) | Required |
+| `REDIS_URL` | Redis connection URL (`redis://...` or `rediss://...`) | Required |
+| `AEGIS_MASTER_KEY` | 64-character hex key used for AES-256-GCM envelope encryption | Required |
+| `AEGIS_BLIND_PEPPER` | 32+ character random string for HMAC blind indexing | Required |
+| `SLACK_WEBHOOK_URL` | Incoming webhook URL for Slack incident alerts | Optional |
+| `ENABLE_CELERY_WORKER` | Run Celery background worker inside the web dyno | `true` |
+| `CELERY_CONCURRENCY` | Worker concurrency limit | `1` |
+| `ENVIRONMENT` | Runtime environment (`development` / `production`) | `development` |
+
+### Frontend (`apps/web/.env.local`)
+
+| Variable | Description | Default |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | Base URL of the Aegis API backend | `http://localhost:8000` |
+
+---
+
+## Supported Secret Patterns
+
+Aegis includes built-in detection rules for common developer secrets:
+- **Cloud Providers**: AWS Access Keys, AWS Secret Keys, GCP API Keys, Azure Connection Strings.
+- **AI & ML APIs**: OpenAI API Keys, Anthropic API Keys, HuggingFace Tokens, Cohere Tokens.
+- **VCS & CI/CD**: GitHub Personal Access Tokens, GitHub Fine-Grained Tokens, GitLab Tokens.
+- **Payment & Messaging**: Stripe Secret Keys, Slack Bot Tokens, Slack Webhook URLs, Twilio Auth Tokens.
+- **Databases & Cryptography**: PostgreSQL/MySQL URIs, MongoDB Connection Strings, RSA/SSH Private Keys, JWT Tokens.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
