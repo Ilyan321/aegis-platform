@@ -48,28 +48,30 @@ export function DashboardSkeleton() {
 
       {/* Main Container */}
       <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-6 flex-1">
-        {/* 4 Telemetry Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { id: 1, delay: 0.1 },
-            { id: 2, delay: 0.18 },
-            { id: 3, delay: 0.26 },
-            { id: 4, delay: 0.34 },
-          ].map((card) => (
-            <div
-              key={card.id}
-              className="bg-surface border border-subtle rounded-xl p-5 shadow-card flex flex-col justify-between h-32 relative overflow-hidden"
-            >
-              <div className="flex items-center justify-between">
-                <ShimmerBlock className="w-32 h-3.5 rounded" delay={card.delay} />
-                <ShimmerBlock className="w-5 h-5 rounded-md" delay={card.delay + 0.05} />
+        {/* Unified Security Posture Ribbon Skeleton */}
+        <div className="bg-surface border border-subtle rounded-2xl p-4 sm:p-5 shadow-card">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-subtle/80">
+            {[
+              { id: 1, delay: 0.1 },
+              { id: 2, delay: 0.18 },
+              { id: 3, delay: 0.26 },
+              { id: 4, delay: 0.34 },
+            ].map((section, idx) => (
+              <div
+                key={section.id}
+                className={`flex flex-col justify-between space-y-3 ${
+                  idx > 0 ? "lg:pl-6" : ""
+                } ${idx < 3 ? "lg:pr-6" : ""}`}
+              >
+                <div className="flex items-center justify-between">
+                  <ShimmerBlock className="w-24 h-3.5 rounded" delay={section.delay} />
+                  <ShimmerBlock className="w-4 h-4 rounded" delay={section.delay + 0.05} />
+                </div>
+                <ShimmerBlock className="w-28 h-7 rounded" delay={section.delay + 0.1} />
+                <ShimmerBlock className="w-36 h-3 rounded" delay={section.delay + 0.15} />
               </div>
-              <div className="space-y-2">
-                <ShimmerBlock className="w-24 h-7 rounded" delay={card.delay + 0.1} />
-                <ShimmerBlock className="w-28 h-3 rounded" delay={card.delay + 0.15} />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Filter Toolbar & Actions */}
