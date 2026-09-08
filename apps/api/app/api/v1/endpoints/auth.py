@@ -283,19 +283,19 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    if data.full_name is not None:
-        current_user.full_name = data.full_name.strip() if data.full_name.strip() else None
-    if data.github_username is not None:
-        clean_handle = data.github_username.strip().replace("@", "")
+    if "full_name" in data.model_fields_set:
+        current_user.full_name = data.full_name.strip() if data.full_name and data.full_name.strip() else None
+    if "github_username" in data.model_fields_set:
+        clean_handle = data.github_username.strip().replace("@", "") if data.github_username else None
         current_user.github_username = clean_handle if clean_handle else None
-    if data.avatar_url is not None:
-        clean_avatar = data.avatar_url.strip()
-        current_user.avatar_url = clean_avatar if clean_avatar else None
+    if "avatar_url" in data.model_fields_set:
+        clean_avatar = data.avatar_url.strip() if data.avatar_url and data.avatar_url.strip() else None
+        current_user.avatar_url = clean_avatar
     await db.commit()
     await db.refresh(current_user)
     resp = UserResponse.model_validate(current_user)
     resp.has_github_token = bool(current_user.github_access_token)
-    logger.info(f"User {current_user.email} updated profile full_name='{current_user.full_name}' github_username='{current_user.github_username}'")
+    logger.info(f"User {current_user.email} updated profile full_name='{current_user.full_name}' github_username='{current_user.github_username}' avatar_url={'set' if current_user.avatar_url else 'cleared'}")
     return resp
 
 

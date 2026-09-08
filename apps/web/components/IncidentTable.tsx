@@ -2,10 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  CheckCircle2,
   ShieldCheck,
-  AlertTriangle,
-  GitCommit,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -13,19 +10,17 @@ import {
   FileCode,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   Keyboard,
   CheckSquare,
   Square,
   MinusSquare,
-  XCircle,
   Loader2,
-  X,
-  Trash2,
 } from "lucide-react";
 import { Incident, downloadComplianceExport } from "@/lib/api";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import { ShimmerBlock } from "@/components/DashboardSkeleton";
+import { IncidentRow } from "@/components/incident/IncidentRow";
+import { IncidentBatchBar } from "@/components/incident/IncidentBatchBar";
 
 interface IncidentTableProps {
   incidents: Incident[];
@@ -497,187 +492,21 @@ export function IncidentTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-subtle text-xs">
-              {paginatedIncidents.map((inc, idx) => {
-                const isSelected = selectedIds.has(inc.id);
-                const isFocused = focusedIndex === idx;
-
-                // Severity badge color mapping
-                let severityBadge = "bg-canvas text-muted border-subtle";
-                if (inc.severity === "CRITICAL") {
-                  severityBadge = "bg-accent text-heading font-bold border-interactive";
-                } else if (inc.severity === "HIGH") {
-                  severityBadge = "bg-subtle text-heading font-semibold border-subtle";
-                }
-
-                // Status styling
-                const isResolved = inc.status === "RESOLVED" || inc.status === "DISMISSED";
-                const isRegression = inc.status === "REGRESSION";
-
-                return (
-                  <tr
-                    key={inc.id}
-                    onClick={() => {
-                      setFocusedIndex(idx);
-                      onSelectIncident(inc);
-                    }}
-                    className={`transition-colors cursor-pointer group relative ${
-                      isSelected
-                        ? "bg-primary/5 hover:bg-primary/10"
-                        : isFocused
-                        ? "bg-canvas/80 ring-1 ring-primary/40 ring-inset"
-                        : "hover:bg-canvas/50"
-                    }`}
-                  >
-                    {/* Checkbox */}
-                    <td
-                      className="py-4 px-4 text-center"
-                      onClick={(e) => toggleSelectRow(inc.id, e)}
-                    >
-                      <button
-                        type="button"
-                        className="p-1 rounded text-muted hover:text-heading focus:outline-hidden transition-colors cursor-pointer"
-                        title={isSelected ? "Deselect" : "Select row (x)"}
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Square className="w-4 h-4 text-muted/40 group-hover:text-muted transition-colors" />
-                        )}
-                      </button>
-                    </td>
-
-                    {/* Severity */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center space-x-2">
-                        <span
-                          className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${severityBadge}`}
-                        >
-                          {inc.severity}
-                        </span>
-                        {isRegression && (
-                          <span className="text-[10px] bg-primary text-surface px-1.5 py-0.5 rounded font-bold">
-                            REGRESSION
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Rule Name */}
-                    <td className="py-4 px-6">
-                      <div>
-                        <div className="font-semibold text-heading group-hover:text-primary transition-colors">
-                          {inc.rule_name}
-                        </div>
-                        <div className="text-[11px] text-muted font-mono">{inc.rule_id}</div>
-                      </div>
-                    </td>
-
-                    {/* Location */}
-                    <td className="py-4 px-6">
-                      <div className="font-mono text-xs text-heading">
-                        {inc.file_path}
-                        <span className="text-muted">:{inc.line_number}</span>
-                      </div>
-                    </td>
-
-                    {/* Masked Snippet */}
-                    <td className="py-4 px-6">
-                      <span className="font-mono text-[11px] bg-canvas border border-subtle px-2.5 py-1 rounded text-heading">
-                        {inc.masked_snippet}
-                      </span>
-                    </td>
-
-                    {/* Verification Status */}
-                    <td className="py-4 px-6">
-                      {inc.verification_status === "ACTIVE" ? (
-                        <span className="inline-flex items-center space-x-1.5 bg-accent text-heading border border-interactive px-2 py-0.5 rounded text-[11px] font-bold">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>ACTIVE LEAK</span>
-                        </span>
-                      ) : inc.verification_status === "REVOKED" ? (
-                        <span className="inline-flex items-center space-x-1 bg-subtle text-muted border border-subtle px-2 py-0.5 rounded text-[11px]">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Revoked</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted text-[11px] font-mono">
-                          {inc.verification_status}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Commit & Author */}
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-1.5 text-muted">
-                        <GitCommit className="w-3.5 h-3.5 text-muted" />
-                        <span className="font-mono text-xs">{inc.commit_sha.slice(0, 7)}</span>
-                        {inc.committer_handle && (
-                          <a
-                            href={`https://github.com/${inc.committer_handle.replace("@", "")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] text-primary hover:underline inline-flex items-center space-x-0.5 font-mono"
-                            title={`View @${inc.committer_handle.replace("@", "")} on GitHub`}
-                          >
-                            <span>(@{inc.committer_handle.replace("@", "")})</span>
-                            <ExternalLink className="w-2.5 h-2.5 ml-0.5 opacity-70" />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Triage Actions */}
-                    <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end space-x-1.5">
-                        {!isResolved ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onTriageStatus(inc.id, "RESOLVED");
-                              }}
-                              title="Mark Resolved (e)"
-                              className="px-2.5 py-1 text-xs bg-canvas hover:bg-subtle text-heading border border-subtle rounded-lg font-medium transition-colors cursor-pointer"
-                            >
-                              Resolve
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onTriageStatus(inc.id, "DISMISSED");
-                              }}
-                              title="Dismiss as False Positive"
-                              className="px-2.5 py-1 text-xs text-muted hover:text-heading hover:bg-canvas rounded-lg transition-colors cursor-pointer"
-                            >
-                              Dismiss
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-[11px] text-muted font-medium italic mr-1">
-                            {inc.status}
-                          </span>
-                        )}
-                        {onDeleteIncident && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteIncident(inc.id);
-                            }}
-                            title="Delete Incident"
-                            className="p-1 text-muted hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {paginatedIncidents.map((inc, idx) => (
+                <IncidentRow
+                  key={inc.id}
+                  incident={inc}
+                  isSelected={selectedIds.has(inc.id)}
+                  isFocused={focusedIndex === idx}
+                  onSelect={() => {
+                    setFocusedIndex(idx);
+                    onSelectIncident(inc);
+                  }}
+                  onToggleCheck={(e) => toggleSelectRow(inc.id, e)}
+                  onTriageStatus={onTriageStatus}
+                  onDeleteIncident={onDeleteIncident}
+                />
+              ))}
             </tbody>
           </table>
         </div>
@@ -740,90 +569,26 @@ export function IncidentTable({
       </div>
 
       {/* Floating Glassmorphic Bulk Action Pill */}
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-5 fade-in duration-200">
-          <div className="flex items-center space-x-3 px-4 py-2.5 bg-surface/95 backdrop-blur-xl border border-primary/30 rounded-2xl shadow-2xl text-xs">
-            <div className="flex items-center space-x-2 pr-2 border-r border-subtle">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="font-semibold text-heading">
-                {selectedIds.size} {selectedIds.size === 1 ? "incident" : "incidents"} selected
-              </span>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                disabled={bulkActionLoading !== null}
-                onClick={() => handleExecuteBulk("RESOLVED")}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-semibold bg-primary text-surface hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-xs"
-              >
-                {bulkActionLoading === "RESOLVED" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                )}
-                <span>Resolve All</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={bulkActionLoading !== null}
-                onClick={() => handleExecuteBulk("DISMISSED")}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-medium bg-canvas hover:bg-subtle border border-subtle text-heading transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {bulkActionLoading === "DISMISSED" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <XCircle className="w-3.5 h-3.5 text-muted" />
-                )}
-                <span>Dismiss All</span>
-              </button>
-
-              {onBulkDelete && (
-                <button
-                  type="button"
-                  disabled={bulkActionLoading !== null}
-                  onClick={async () => {
-                    setBulkActionLoading("DELETE");
-                    try {
-                      await onBulkDelete(Array.from(selectedIds));
-                      setSelectedIds(new Set());
-                    } finally {
-                      setBulkActionLoading(null);
-                    }
-                  }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-medium bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {bulkActionLoading === "DELETE" ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
-                  <span>Delete Selected</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => exportSelectedOrAll("json")}
-                className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl font-medium bg-canvas hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors cursor-pointer"
-              >
-                <FileCode className="w-3.5 h-3.5 text-primary" />
-                <span>Export JSON</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={clearSelection}
-                title="Deselect all (Esc)"
-                className="p-1.5 rounded-lg text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <IncidentBatchBar
+        selectedCount={selectedIds.size}
+        bulkActionLoading={bulkActionLoading}
+        onExecuteBulk={handleExecuteBulk}
+        onBulkDelete={
+          onBulkDelete
+            ? async () => {
+                setBulkActionLoading("DELETE");
+                try {
+                  await onBulkDelete(Array.from(selectedIds));
+                  setSelectedIds(new Set());
+                } finally {
+                  setBulkActionLoading(null);
+                }
+              }
+            : undefined
+        }
+        onExportJson={() => exportSelectedOrAll("json")}
+        onClearSelection={clearSelection}
+      />
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal

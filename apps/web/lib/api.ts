@@ -88,8 +88,6 @@ export function getApiBase(): string {
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 }
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export function getOAuthUrl(provider: "github" | "google", mode: "login" | "signup" = "login"): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const param = origin ? `&redirect_to=${encodeURIComponent(origin)}` : "";
@@ -269,7 +267,7 @@ export async function fetchIncidentAudits(id: string): Promise<IncidentAudit[]> 
 
 export async function downloadComplianceExport(format: "csv" | "json" = "csv"): Promise<void> {
   const token = getStoredToken();
-  const res = await fetch(`${API_BASE}/api/v1/incidents/export?format=${format}`, {
+  const res = await fetch(`${getApiBase()}/api/v1/incidents/export?format=${format}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) {

@@ -47,3 +47,8 @@ Thumbs.db
 /tmp/repo_*
 .vercel
 .env*
+
+# Binaries & Compiled Artifacts
+bin/
+apps/api/bin/
+*.exe

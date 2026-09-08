@@ -9,9 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Aegis CLI binary
-COPY apps/api/bin/aegis /usr/local/bin/aegis
-RUN chmod +x /usr/local/bin/aegis
+# Install Aegis CLI binary dynamically
+RUN curl -fsSL https://aegis.ilyankhan.tech/install.sh | bash || true
 
 # Install Python dependencies
 COPY apps/api/requirements.txt .

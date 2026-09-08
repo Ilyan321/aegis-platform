@@ -216,14 +216,16 @@ function SettingsContent() {
       await updateUserProfile({
         full_name: fullName.trim() || null,
         github_username: githubUsername.trim() || null,
-        avatar_url: newAvatarUrl ? newAvatarUrl.trim() : null,
+        avatar_url: newAvatarUrl && newAvatarUrl.trim() ? newAvatarUrl.trim() : null,
       });
       setAvatarUrl(newAvatarUrl || "");
       await refreshUser();
       toast({
         type: "success",
-        title: "Avatar Updated",
-        description: "Your profile photo has been saved.",
+        title: newAvatarUrl ? "Avatar Saved" : "Avatar Removed",
+        description: newAvatarUrl
+          ? "Your profile photo has been updated."
+          : "Your custom photo was removed; default avatar restored.",
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update avatar";
@@ -657,9 +659,10 @@ function SettingsContent() {
                             type="button"
                             onClick={() => saveAvatar(null)}
                             disabled={processingImage}
-                            className="px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            className="px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center space-x-1"
                           >
-                            Remove
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove Photo</span>
                           </button>
                         )}
                       </div>
