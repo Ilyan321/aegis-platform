@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Navbar, DashboardView } from "@/components/Navbar";
 import { TelemetryCards } from "@/components/TelemetryCards";
 import { IncidentToolbar } from "@/components/IncidentToolbar";
@@ -19,6 +18,7 @@ import { Shield, GitFork, Activity, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { OnboardingHero } from "@/components/OnboardingHero";
+import { LandingView } from "@/components/LandingView";
 import { SAMPLE_INCIDENTS, SAMPLE_REPOSITORIES, SAMPLE_TELEMETRY } from "@/lib/sampleData";
 import {
   Incident,
@@ -36,7 +36,6 @@ import {
 } from "@/lib/api";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
@@ -121,33 +120,29 @@ export default function DashboardPage() {
   }, [user?.full_name]);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.replace("/login");
-      } else {
-        loadDashboardData(user.organization_id);
+    if (!authLoading && user) {
+      loadDashboardData(user.organization_id);
 
-        // Auto-refresh telemetry every 30s when tab is active
-        const interval = setInterval(() => {
-          if (!isSimulated && document.visibilityState === "visible") {
-            loadDashboardData(user.organization_id);
-          }
-        }, 30000);
+      // Auto-refresh telemetry every 30s when tab is active
+      const interval = setInterval(() => {
+        if (!isSimulated && document.visibilityState === "visible") {
+          loadDashboardData(user.organization_id);
+        }
+      }, 30000);
 
-        const handleFocus = () => {
-          if (!isSimulated) {
-            loadDashboardData(user.organization_id);
-          }
-        };
+      const handleFocus = () => {
+        if (!isSimulated) {
+          loadDashboardData(user.organization_id);
+        }
+      };
 
-        window.addEventListener("focus", handleFocus);
-        return () => {
-          clearInterval(interval);
-          window.removeEventListener("focus", handleFocus);
-        };
-      }
+      window.addEventListener("focus", handleFocus);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", handleFocus);
+      };
     }
-  }, [authLoading, user, router, loadDashboardData, isSimulated]);
+  }, [authLoading, user, loadDashboardData, isSimulated]);
 
   const handleLoadSampleData = () => {
     setIsSimulated(true);
@@ -295,7 +290,15 @@ export default function DashboardPage() {
     });
   }, [incidents, currentTab, searchQuery]);
 
-  if (authLoading || !user || loading) {
+  if (authLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!user) {
+    return <LandingView />;
+  }
+
+  if (loading) {
     return <DashboardSkeleton />;
   }
 

@@ -5,6 +5,9 @@ const AUTH_COOKIE = "aegis_auth_token";
 
 // Whitelisted public routes that never require authentication
 const PUBLIC_PATHS = [
+  "/",
+  "/landing",
+  "/cli",
   "/login",
   "/signup",
   "/verify-email",
