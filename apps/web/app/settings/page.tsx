@@ -23,6 +23,10 @@ import {
   EyeOff,
   Building,
   CheckCircle2,
+  ShieldCheck,
+  Download,
+  Sparkles,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -41,6 +45,7 @@ import {
 } from "@/lib/api";
 
 type SettingsTab = "profile" | "security" | "alerts" | "cli";
+type TargetOS = "macos" | "linux" | "windows" | "wsl";
 
 const AVATAR_PRESETS = [
   { id: "sentinel", label: "Sentinel", url: "https://api.dicebear.com/7.x/bottts/svg?seed=AegisSentinel&backgroundColor=b6e3f4,c0aede,d1d4f9" },
@@ -103,6 +108,9 @@ function SettingsContent() {
   const [cliTokenData, setCliTokenData] = useState<CliTokenResponse | null>(null);
   const [loadingCliToken, setLoadingCliToken] = useState(false);
   const [copiedCliToken, setCopiedCliToken] = useState(false);
+  const [selectedOS, setSelectedOS] = useState<TargetOS>("macos");
+  const [showCliToken, setShowCliToken] = useState(false);
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
   // Initialize profile data
   useEffect(() => {
@@ -459,6 +467,30 @@ function SettingsContent() {
         duration: 2000,
       });
       setTimeout(() => setCopiedCliToken(false), 2000);
+    }
+  };
+
+  const copySectionText = (text: string, section: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSection(section);
+    toast({
+      type: "success",
+      title: "Copied to clipboard",
+      description: `${section} copied to clipboard.`,
+      duration: 2000,
+    });
+    setTimeout(() => setCopiedSection(null), 2000);
+  };
+
+  const getInstallCommand = (os: TargetOS) => {
+    switch (os) {
+      case "windows":
+        return "irm https://aegis.ilyankhan.tech/install.ps1 | iex";
+      case "macos":
+      case "linux":
+      case "wsl":
+      default:
+        return "curl -fsSL https://aegis.ilyankhan.tech/install.sh | bash";
     }
   };
 
@@ -1192,132 +1224,352 @@ function SettingsContent() {
             {/* TAB 4: API & CLI ACCESS */}
             {activeTab === "cli" && (
               <div className="space-y-6 animate-in fade-in duration-150">
-                {/* Personal CLI Access Token Card */}
-                <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-subtle space-y-5">
-                  <div className="border-b border-subtle pb-4 flex items-start justify-between">
-                    <div>
-                      <h2 className="text-base font-semibold text-heading">Personal CLI Authentication Token</h2>
-                      <p className="text-xs text-muted mt-0.5">
-                        Use this Bearer token to authorize the Aegis CLI binary on developer machines and CI/CD pipelines.
-                      </p>
-                    </div>
-                    <Link
-                      href="/cli"
-                      className="text-xs text-primary hover:text-heading transition-colors inline-flex items-center space-x-1"
-                    >
-                      <span>CLI Installation Guide</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </Link>
+                {/* Header Intro Banner */}
+                <div className="p-6 bg-surface border border-subtle rounded-2xl space-y-3">
+                  <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Pure Go · Zero Dependencies · &lt;10ms Pre-Commit Guard</span>
                   </div>
-
-                  {loadingCliToken ? (
-                    <div className="py-10 text-center space-y-2">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
-                      <p className="text-xs text-muted">Retrieving personal CLI access token...</p>
-                    </div>
-                  ) : cliTokenData ? (
-                    <div className="space-y-4">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <label className="font-semibold text-heading">Access Token (30-Day Expiry)</label>
-                          <span className="text-[11px] text-muted">Valid for {cliTokenData.expires_in_days} days</span>
-                        </div>
-                        <div className="bg-canvas border border-subtle rounded-xl p-3 flex items-center justify-between gap-3 font-mono text-xs">
-                          <span className="truncate text-muted select-all">
-                            {cliTokenData.cli_token}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleCopyCliToken}
-                            className="px-3 py-1.5 text-xs font-medium text-heading bg-surface hover:bg-subtle border border-subtle rounded-lg transition-colors inline-flex items-center space-x-1.5 shrink-0 cursor-pointer"
-                          >
-                            {copiedCliToken ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5 text-muted" />}
-                            <span>{copiedCliToken ? "Copied" : "Copy Token"}</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Quick Login Command */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-heading">Quick Setup Command</label>
-                        <div className="bg-canvas border border-subtle rounded-xl p-3 flex items-center justify-between gap-3 font-mono text-xs">
-                          <span className="text-primary truncate select-all">
-                            aegis auth login --token {cliTokenData.cli_token.slice(0, 16)}...
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(`aegis auth login --token ${cliTokenData.cli_token}`);
-                              toast({
-                                type: "success",
-                                title: "Command Copied",
-                                description: "Login command with full token copied to clipboard.",
-                                duration: 2000,
-                              });
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium text-heading bg-surface hover:bg-subtle border border-subtle rounded-lg transition-colors inline-flex items-center space-x-1.5 shrink-0 cursor-pointer"
-                          >
-                            <Copy className="w-3.5 h-3.5 text-muted" />
-                            <span>Copy Command</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                  <h2 className="text-lg font-bold tracking-tight text-heading">
+                    Aegis CLI Workstation Setup & API Access
+                  </h2>
+                  <p className="text-xs text-muted leading-relaxed max-w-3xl">
+                    Install the compiled Aegis binary to intercept secrets on developer workstations, block leaks before git commits complete, and stream security telemetry directly into your cloud control plane.
+                  </p>
                 </div>
 
-                {/* Common Workstation Commands Card */}
-                <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-subtle space-y-4">
-                  <div className="border-b border-subtle pb-4">
-                    <h2 className="text-base font-semibold text-heading">Essential CLI Commands</h2>
-                    <p className="text-xs text-muted mt-0.5">
-                      Commands for local secret scanning, cloud synchronization, and git hook installation.
-                    </p>
+                {/* OS Platform Selector */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-surface border border-subtle p-1.5 rounded-2xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOS("macos")}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      selectedOS === "macos"
+                        ? "bg-primary text-surface font-semibold shadow-xs"
+                        : "text-muted hover:text-heading hover:bg-canvas"
+                    }`}
+                  >
+                    macOS (Apple Silicon & Intel)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOS("linux")}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      selectedOS === "linux"
+                        ? "bg-primary text-surface font-semibold shadow-xs"
+                        : "text-muted hover:text-heading hover:bg-canvas"
+                    }`}
+                  >
+                    Linux (x86_64 / ARM64)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOS("windows")}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      selectedOS === "windows"
+                        ? "bg-primary text-surface font-semibold shadow-xs"
+                        : "text-muted hover:text-heading hover:bg-canvas"
+                    }`}
+                  >
+                    Windows (PowerShell)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOS("wsl")}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      selectedOS === "wsl"
+                        ? "bg-primary text-surface font-semibold shadow-xs"
+                        : "text-muted hover:text-heading hover:bg-canvas"
+                    }`}
+                  >
+                    WSL (Ubuntu / Debian)
+                  </button>
+                </div>
+
+                {/* 4-Step Setup Workflow */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                  {/* Left Workflow Column */}
+                  <div className="xl:col-span-7 space-y-6">
+                    {/* Step 1: Download & Install */}
+                    <section className="p-6 bg-surface border border-subtle rounded-2xl space-y-3.5 shadow-subtle">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            1
+                          </div>
+                          <h3 className="text-sm font-semibold text-heading">Download & Install Aegis Binary</h3>
+                        </div>
+                        <span className="text-[11px] font-mono text-muted uppercase tracking-wider">
+                          {selectedOS === "windows" ? "PowerShell" : "Shell Script"}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-muted leading-relaxed">
+                        {selectedOS === "windows"
+                          ? "Runs the PowerShell installer, installs to %LOCALAPPDATA%\\Programs\\Aegis\\aegis.exe, and adds to user PATH."
+                          : "Auto-detects CPU architecture (ARM64 / x86_64), downloads the latest binary, and installs to /usr/local/bin/aegis."}
+                      </p>
+
+                      <div className="bg-canvas border border-subtle rounded-xl p-3.5 font-mono text-xs text-heading flex items-center justify-between group">
+                        <span className="truncate flex-1 pr-3 text-primary font-semibold text-[11px] sm:text-xs">
+                          {getInstallCommand(selectedOS)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copySectionText(getInstallCommand(selectedOS), "Install command")}
+                          className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer shadow-xs"
+                          title="Copy install command"
+                        >
+                          {copiedSection === "Install command" ? (
+                            <Check className="w-4 h-4 text-primary" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+
+                      {selectedOS === "windows" && (
+                        <div className="pt-1 text-[11px] text-muted flex items-center space-x-2">
+                          <span>Manual download:</span>
+                          <a
+                            href="https://github.com/Ilyan321/aegis-platform/releases/latest/download/aegis-windows-amd64.exe"
+                            className="text-primary hover:underline inline-flex items-center space-x-1 font-mono font-medium"
+                          >
+                            <span>aegis-windows-amd64.exe</span>
+                            <Download className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Step 2: Sign In & Authenticate */}
+                    <section className="p-6 bg-surface border border-subtle rounded-2xl space-y-3.5 shadow-subtle">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            2
+                          </div>
+                          <h3 className="text-sm font-semibold text-heading">Sign In to Your Workspace</h3>
+                        </div>
+                        <span className="text-[11px] text-muted">Valid for 30 days</span>
+                      </div>
+
+                      <p className="text-xs text-muted leading-relaxed">
+                        Authorize your workstation to sync scans and enforce organization-wide pre-commit security policies.
+                      </p>
+
+                      {loadingCliToken ? (
+                        <div className="p-4 bg-canvas border border-subtle rounded-xl flex items-center justify-center space-x-2 text-xs text-muted">
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          <span>Generating personal CLI token...</span>
+                        </div>
+                      ) : cliTokenData ? (
+                        <div className="space-y-3">
+                          <div className="bg-canvas border border-subtle rounded-xl p-3.5 font-mono text-xs text-heading flex items-center justify-between group">
+                            <span className="truncate flex-1 pr-3 text-[11px] sm:text-xs">
+                              aegis login --token {cliTokenData.cli_token}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => copySectionText(`aegis login --token ${cliTokenData.cli_token}`, "Login command")}
+                              className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer shadow-xs"
+                              title="Copy login command"
+                            >
+                              {copiedSection === "Login command" ? (
+                                <Check className="w-4 h-4 text-primary" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Raw Token Reveal */}
+                          <div className="pt-1 flex items-center justify-between text-[11px] text-muted">
+                            <span>Personal Bearer Token:</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-mono text-xs">
+                                {showCliToken ? cliTokenData.cli_token : "••••••••••••••••••••••••"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setShowCliToken(!showCliToken)}
+                                className="text-primary hover:text-heading transition-colors cursor-pointer"
+                                title={showCliToken ? "Hide token" : "Show token"}
+                              >
+                                {showCliToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCopyCliToken}
+                                className="text-primary hover:text-heading transition-colors cursor-pointer ml-1"
+                                title="Copy raw token"
+                              >
+                                {copiedCliToken ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </section>
+
+                    {/* Step 3: Initialize Repository Pre-Commit Hook */}
+                    <section className="p-6 bg-surface border border-subtle rounded-2xl space-y-3.5 shadow-subtle">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            3
+                          </div>
+                          <h3 className="text-sm font-semibold text-heading">Initialize Repository Guardrail</h3>
+                        </div>
+                        <span className="text-[11px] font-mono text-primary font-semibold">&lt;10ms latency</span>
+                      </div>
+
+                      <p className="text-xs text-muted leading-relaxed">
+                        Run inside any local Git repository. Installs the zero-trust pre-commit hook in <code className="bg-canvas px-1 py-0.2 rounded border border-subtle font-mono text-[11px]">.git/hooks/pre-commit</code>. Any attempt to commit AWS keys, GitHub tokens, or private keys will be instantly intercepted and blocked.
+                      </p>
+
+                      <div className="bg-canvas border border-subtle rounded-xl p-3.5 font-mono text-xs text-heading flex items-center justify-between group">
+                        <span className="truncate flex-1 pr-3 text-primary font-semibold text-xs">
+                          aegis init
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copySectionText("aegis init", "Init command")}
+                          className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer shadow-xs"
+                          title="Copy init command"
+                        >
+                          {copiedSection === "Init command" ? (
+                            <Check className="w-4 h-4 text-primary" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </section>
+
+                    {/* Step 4: Run Scans & Telemetry */}
+                    <section className="p-6 bg-surface border border-subtle rounded-2xl space-y-3.5 shadow-subtle">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            4
+                          </div>
+                          <h3 className="text-sm font-semibold text-heading">Scan Repository & Stream Telemetry</h3>
+                        </div>
+                        <span className="text-[11px] text-muted">Deep Multi-Threaded</span>
+                      </div>
+
+                      <p className="text-xs text-muted leading-relaxed">
+                        Inspect codebases recursively or audit uncommitted changes with live provider verification and cloud synchronization.
+                      </p>
+
+                      <div className="space-y-2">
+                        <div className="bg-canvas border border-subtle rounded-xl p-3 font-mono text-xs text-heading flex items-center justify-between group">
+                          <span className="truncate flex-1 pr-3 text-[11px] sm:text-xs">
+                            aegis scan --sync
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copySectionText("aegis scan --sync", "Sync command")}
+                            className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer shadow-xs"
+                            title="Copy sync command"
+                          >
+                            {copiedSection === "Sync command" ? (
+                              <Check className="w-3.5 h-3.5 text-primary" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="bg-canvas border border-subtle rounded-xl p-3 font-mono text-xs text-heading flex items-center justify-between group">
+                          <span className="truncate flex-1 pr-3 text-[11px] sm:text-xs">
+                            aegis scan --verify --history
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copySectionText("aegis scan --verify --history", "History scan command")}
+                            className="p-1.5 rounded-lg bg-surface hover:bg-subtle border border-subtle text-muted hover:text-heading transition-colors shrink-0 cursor-pointer shadow-xs"
+                            title="Copy history scan command"
+                          >
+                            {copiedSection === "History scan command" ? (
+                              <Check className="w-3.5 h-3.5 text-primary" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </section>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-3.5 bg-canvas border border-subtle rounded-xl space-y-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between text-muted text-[11px]">
-                        <span className="font-sans font-semibold text-heading">Local Scanning</span>
-                        <span>Terminal</span>
+                  {/* Right Column: Terminal Emulation, Privacy Guarantees, and Cheat Sheet */}
+                  <div className="xl:col-span-5 space-y-6">
+                    {/* Terminal Window Emulator */}
+                    <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-subtle">
+                      <div className="flex items-center px-4 py-3 bg-canvas border-b border-subtle space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+                        <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                        <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                        <span className="text-[11px] font-mono text-muted pl-2">terminal — aegis scan</span>
                       </div>
-                      <p className="text-primary font-medium">$ aegis scan</p>
-                      <p className="font-sans text-[11px] text-muted">
-                        Scans the working directory for credentials and private keys.
+                      <div className="p-4 font-mono text-[11px] leading-relaxed space-y-2 bg-canvas/60 text-muted overflow-x-auto">
+                        <p className="text-heading">$ aegis scan</p>
+                        <p className="text-primary font-bold">[AEGIS] DETECTED 1 SECRET LEAK(S)</p>
+                        <p className="border-t border-subtle pt-1 text-rose-400 font-semibold">
+                          #1 [CRITICAL] AEGIS-AWS-001: AWS Access Key
+                        </p>
+                        <p className="text-muted">
+                          &nbsp;&nbsp;Location: src/config/aws.ts:14<br />
+                          &nbsp;&nbsp;Detected: AKIA****************<br />
+                          &nbsp;&nbsp;Entropy:&nbsp;&nbsp;3.84 (High Confidence)
+                        </p>
+                        <p className="border-t border-subtle pt-1 text-amber-400">
+                          ==&gt; Pre-commit hook blocked git commit (Exit Code 1)
+                        </p>
+                        <p className="text-muted pt-1">Scanned 142 files (12,410 lines) in 18ms</p>
+                      </div>
+                    </div>
+
+                    {/* Privacy & Zero-Exfiltration Guarantee */}
+                    <div className="p-6 bg-surface border border-subtle rounded-2xl space-y-3 shadow-subtle">
+                      <div className="flex items-center space-x-2 text-primary font-semibold text-xs">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Zero Secret Exfiltration Guarantee</span>
+                      </div>
+                      <p className="text-xs text-muted leading-relaxed">
+                        Aegis operates on a strict zero-knowledge model. Plaintext credentials are never saved to disk, logged to terminals, or sent across the network. Only masked values (e.g. <code className="bg-canvas px-1 py-0.2 rounded border border-subtle font-mono text-[10px]">AKIA****</code>) and blind-index HMAC-SHA256 hashes are communicated to the cloud platform.
                       </p>
                     </div>
 
-                    <div className="p-3.5 bg-canvas border border-subtle rounded-xl space-y-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between text-muted text-[11px]">
-                        <span className="font-sans font-semibold text-heading">Cloud Synchronization</span>
-                        <span>Terminal</span>
+                    {/* CLI Command Quick Reference Card */}
+                    <div className="p-6 bg-surface border border-subtle rounded-2xl space-y-3 shadow-subtle text-xs">
+                      <div className="flex items-center space-x-2 text-heading font-semibold">
+                        <Layers className="w-4 h-4 text-primary" />
+                        <span>CLI Command Quick Reference</span>
                       </div>
-                      <p className="text-primary font-medium">$ aegis scan --sync</p>
-                      <p className="font-sans text-[11px] text-muted">
-                        Runs deep inspection and streams results to this dashboard.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 bg-canvas border border-subtle rounded-xl space-y-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between text-muted text-[11px]">
-                        <span className="font-sans font-semibold text-heading">Git Hook Setup</span>
-                        <span>Terminal</span>
+                      <div className="space-y-2.5 font-mono text-[11px] pt-1">
+                        <div className="flex justify-between items-center border-b border-subtle pb-2">
+                          <span className="text-primary font-semibold">aegis init</span>
+                          <span className="text-muted font-sans text-right">Install git pre-commit hook</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-subtle pb-2">
+                          <span className="text-primary font-semibold">aegis login</span>
+                          <span className="text-muted font-sans text-right">Link workspace token</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-subtle pb-2">
+                          <span className="text-primary font-semibold">aegis scan</span>
+                          <span className="text-muted font-sans text-right">Scan working tree</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-subtle pb-2">
+                          <span className="text-primary font-semibold">aegis scan --sync</span>
+                          <span className="text-muted font-sans text-right">Stream telemetry to cloud</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-primary font-semibold">aegis status</span>
+                          <span className="text-muted font-sans text-right">Inspect pre-commit status</span>
+                        </div>
                       </div>
-                      <p className="text-primary font-medium">$ aegis init</p>
-                      <p className="font-sans text-[11px] text-muted">
-                        Installs pre-commit intercept hooks in the active repository.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 bg-canvas border border-subtle rounded-xl space-y-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between text-muted text-[11px]">
-                        <span className="font-sans font-semibold text-heading">Status Inspection</span>
-                        <span>Terminal</span>
-                      </div>
-                      <p className="text-primary font-medium">$ aegis status</p>
-                      <p className="font-sans text-[11px] text-muted">
-                        Verifies hook installations and authenticated control plane link.
-                      </p>
                     </div>
                   </div>
                 </div>
