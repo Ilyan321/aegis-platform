@@ -7,49 +7,52 @@ import {
   GitFork,
   Zap,
   Lock,
-  CheckCircle2,
   Copy,
   Check,
   ArrowRight,
-  Activity,
-  RotateCcw,
   ExternalLink,
+  FileCode,
+  GitCommit,
+  RotateCcw,
+  Server,
 } from "lucide-react";
 
 export function LandingView() {
-  const [copied, setCopied] = useState(false);
+  const [copiedScript, setCopiedScript] = useState<string | null>(null);
+  const [activeCliTab, setActiveCliTab] = useState<"bash" | "powershell">("bash");
 
-  const copyInstallCommand = () => {
-    navigator.clipboard.writeText("curl -fsSL aegis.ilyankhan.tech | sh");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const bashCommand = "curl -fsSL https://aegis.ilyankhan.tech/install.sh | bash";
+  const psCommand = "irm https://aegis.ilyankhan.tech/install.ps1 | iex";
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedScript(id);
+    setTimeout(() => setCopiedScript(null), 2000);
   };
 
   return (
     <div className="min-h-screen bg-canvas text-heading font-sans selection:bg-subtle selection:text-heading">
-      {/* ── Top Navigation Bar ────────────────────────────────────────── */}
+      {/* ── Top Header ────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 w-full bg-surface border-b border-subtle">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-heading flex items-center justify-center text-accent shadow-subtle">
-              <Shield className="w-5 h-5 text-accent" />
+            <div className="w-8 h-8 rounded-lg bg-heading flex items-center justify-center text-accent shadow-subtle">
+              <Shield className="w-4 h-4 text-accent" />
             </div>
-            <div>
-              <span className="font-bold text-base tracking-tight text-heading">
-                Aegis
-              </span>
-              <span className="hidden sm:inline-block ml-2 text-[10px] uppercase font-mono font-bold tracking-widest px-2 py-0.5 rounded bg-canvas text-primary border border-subtle">
-                Platform
-              </span>
-            </div>
+            <span className="font-bold text-base tracking-tight text-heading">
+              Aegis
+            </span>
           </div>
 
           <nav className="hidden md:flex items-center space-x-8 text-xs font-medium text-muted">
             <a href="#architecture" className="hover:text-heading transition-colors">
               Architecture
             </a>
-            <a href="#pipeline" className="hover:text-heading transition-colors">
-              How It Works
+            <a href="#enforcement" className="hover:text-heading transition-colors">
+              Enforcement Gap
+            </a>
+            <a href="#cli" className="hover:text-heading transition-colors">
+              CLI & Sensor
             </a>
             <a href="#comparison" className="hover:text-heading transition-colors">
               Comparison
@@ -58,7 +61,7 @@ export function LandingView() {
               FAQ
             </a>
             <a
-              href="https://github.com/ilyankhan/aegis-platform"
+              href="https://github.com/Ilyan321/aegis-platform"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-heading transition-colors inline-flex items-center space-x-1"
@@ -71,13 +74,13 @@ export function LandingView() {
           <div className="flex items-center space-x-3">
             <Link
               href="/login"
-              className="text-xs font-semibold text-muted hover:text-heading px-3.5 py-2 rounded-xl transition-colors"
+              className="text-xs font-semibold text-muted hover:text-heading px-3 py-1.5 transition-colors"
             >
               Sign In
             </Link>
             <Link
               href="/signup"
-              className="inline-flex items-center space-x-1.5 text-xs font-semibold bg-primary hover:bg-heading text-surface px-4 py-2 rounded-xl shadow-subtle transition-colors"
+              className="inline-flex items-center space-x-1.5 text-xs font-semibold bg-primary hover:bg-heading text-surface px-3.5 py-2 rounded-lg shadow-subtle transition-colors"
             >
               <span>Get Started</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -86,233 +89,165 @@ export function LandingView() {
         </div>
       </header>
 
-      {/* ── Hero Section ────────────────────────────────────────────── */}
-      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 px-6 border-b border-subtle">
-        <div className="max-w-5xl mx-auto text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center space-x-2 bg-surface border border-subtle rounded-full px-3.5 py-1.5 shadow-subtle mb-8">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs font-semibold text-heading">
-              Aegis v1.0.0 Production Release
-            </span>
-            <span className="text-subtle">|</span>
-            <span className="text-xs text-muted">Zero-Trust Credential Mesh</span>
-          </div>
+      {/* ── Asymmetric Hero Section ─────────────────────────────────── */}
+      <section className="py-16 md:py-24 px-6 border-b border-subtle">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          {/* Left Column: Core Positioning */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
+              DevSecOps Secret Interception & Orchestration
+            </div>
 
-          {/* Main Headline */}
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-heading leading-[1.1] max-w-4xl mx-auto">
-            Stop credential leaks in Git before they reach production.
-          </h1>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-heading leading-[1.08]">
+              Stop credential leaks in Git before they reach production.
+            </h1>
 
-          {/* Subtitle */}
-          <p className="mt-6 text-base sm:text-lg text-muted max-w-2xl mx-auto leading-relaxed">
-            A high-throughput DevSecOps control plane. Intercepts webhook pushes in <span className="font-mono font-semibold text-heading">&lt;35ms</span>, inspects entropy with zero plaintext storage, and reconciles incident lifecycles automatically.
-          </p>
+            <p className="text-base sm:text-lg text-muted leading-relaxed max-w-2xl">
+              A high-throughput control plane for engineering teams. Ingests GitHub push webhooks in under 35ms, scans diffs with Shannon entropy and 40+ credential signatures, and reconciles incident lifecycles automatically.
+            </p>
 
-          {/* Action CTAs & CLI Command */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/signup"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 text-sm font-semibold bg-primary hover:bg-heading text-surface px-6 py-3.5 rounded-xl shadow-card transition-all"
-            >
-              <span>Deploy Webhook Mesh Free</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            {/* Quick Install Bar */}
-            <div className="w-full sm:w-auto flex items-center justify-between bg-surface border border-subtle rounded-xl px-4 py-3 shadow-subtle space-x-3 font-mono text-xs text-heading">
-              <span className="text-primary font-bold">$</span>
-              <span className="truncate">curl -fsSL aegis.ilyankhan.tech | sh</span>
-              <button
-                type="button"
-                onClick={copyInstallCommand}
-                aria-label="Copy install script"
-                className="text-muted hover:text-heading p-1 rounded transition-colors cursor-pointer"
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center space-x-2 text-sm font-semibold bg-primary hover:bg-heading text-surface px-5 py-3 rounded-lg shadow-subtle transition-colors text-center"
               >
-                {copied ? (
-                  <Check className="w-4 h-4 text-primary" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
+                <span>Connect GitHub Organization</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a
+                href="https://github.com/Ilyan321/aegis-platform"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center space-x-2 text-sm font-medium text-heading bg-surface hover:bg-canvas border border-subtle px-5 py-3 rounded-lg transition-colors text-center"
+              >
+                <span>View Source Code</span>
+                <ExternalLink className="w-4 h-4 text-muted" />
+              </a>
+            </div>
+
+            {/* CLI Quick Installer Bar */}
+            <div className="pt-4 max-w-xl">
+              <div className="bg-surface border border-subtle rounded-xl overflow-hidden shadow-subtle">
+                <div className="flex items-center justify-between bg-canvas/80 px-3 py-2 border-b border-subtle">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCliTab("bash")}
+                      className={`text-[11px] font-mono font-semibold px-2.5 py-1 rounded transition-colors ${
+                        activeCliTab === "bash"
+                          ? "bg-surface text-heading shadow-subtle"
+                          : "text-muted hover:text-heading"
+                      }`}
+                    >
+                      macOS / Linux
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCliTab("powershell")}
+                      className={`text-[11px] font-mono font-semibold px-2.5 py-1 rounded transition-colors ${
+                        activeCliTab === "powershell"
+                          ? "bg-surface text-heading shadow-subtle"
+                          : "text-muted hover:text-heading"
+                      }`}
+                    >
+                      Windows PowerShell
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted">CLI v1.0.0</span>
+                </div>
+
+                <div className="p-3 flex items-center justify-between font-mono text-xs text-heading bg-surface">
+                  <div className="flex items-center space-x-2 truncate">
+                    <span className="text-primary font-bold select-none">$</span>
+                    <span className="truncate select-all">
+                      {activeCliTab === "bash" ? bashCommand : psCommand}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleCopy(
+                        activeCliTab === "bash" ? bashCommand : psCommand,
+                        "hero-install"
+                      )
+                    }
+                    className="ml-3 p-1.5 rounded text-muted hover:text-heading hover:bg-canvas transition-colors shrink-0 cursor-pointer"
+                    aria-label="Copy installation command"
+                  >
+                    {copiedScript === "hero-install" ? (
+                      <Check className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Key Metrics Strip */}
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-            {[
-              { label: "Webhook Handshake", val: "< 35 ms", desc: "Immediate 202 Enqueue" },
-              { label: "Plaintext Storage", val: "0 bytes", desc: "HMAC Blind-Indexed" },
-              { label: "Detection Engine", val: "40+ Rules", desc: "Regex & Shannon Entropy" },
-              { label: "Remediation", val: "Auto-Reconcile", desc: "AST State Diff Verification" },
-            ].map((stat, i) => (
-              <div
-                key={i}
-                className="bg-surface border border-subtle rounded-2xl p-4 text-left shadow-subtle"
-              >
-                <span className="block text-[11px] font-semibold text-muted uppercase tracking-wider">
-                  {stat.label}
+          {/* Right Column: Real Operational Terminal & Incident Preview */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Terminal Block */}
+            <div className="bg-heading rounded-xl border border-heading overflow-hidden shadow-elevated">
+              <div className="bg-[#082A28] px-4 py-2.5 flex items-center justify-between border-b border-heading/40">
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                </div>
+                <span className="font-mono text-[11px] text-accent/70">
+                  terminal — aegis scan
                 </span>
-                <span className="block text-2xl font-bold font-mono text-heading mt-1">
-                  {stat.val}
-                </span>
-                <span className="block text-[11px] text-muted mt-0.5">{stat.desc}</span>
+                <div className="w-8" />
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* ── Realistic Product UI Showcase ─────────────────────────── */}
-        <div className="mt-16 max-w-6xl mx-auto">
-          <div className="bg-surface border border-subtle rounded-2xl shadow-elevated overflow-hidden">
-            {/* Window Header */}
-            <div className="bg-canvas border-b border-subtle px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-border" />
-                <div className="w-3 h-3 rounded-full bg-border" />
-                <div className="w-3 h-3 rounded-full bg-border" />
-                <span className="ml-2 font-mono text-xs font-semibold text-muted">
-                  aegis-control-plane // incident-forensics-ledger
-                </span>
-              </div>
-              <div className="flex items-center space-x-3 text-xs">
-                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-surface border border-subtle text-primary font-mono text-[11px] font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span>Mesh Active: 12 Repositories</span>
-                </span>
+              <div className="p-4 font-mono text-[11px] text-canvas space-y-2 leading-relaxed">
+                <div className="text-muted/80">
+                  <span className="text-accent">$</span> git push origin feature/auth-sync
+                </div>
+                <div className="text-accent/90">
+                  [aegis] Ingesting commit 8f4b1e2 (3 files modified)...
+                </div>
+                <div className="text-amber-400 bg-amber-950/40 p-2 rounded border border-amber-800/40">
+                  [!] DETECTED: AWS_SECRET_ACCESS_KEY
+                  <br />
+                  &nbsp;&nbsp;&nbsp;File: services/auth/providers.ts:42
+                  <br />
+                  &nbsp;&nbsp;&nbsp;Entropy: 4.82 bits (Threshold: 4.30)
+                  <br />
+                  &nbsp;&nbsp;&nbsp;Dual-Cipher Hash: 8c3f91...b72a
+                </div>
+                <div className="text-emerald-400">
+                  [aegis] Webhook ACK: 28ms &bull; Forensic ticket #INC-1042 queued
+                </div>
               </div>
             </div>
 
-            {/* Dashboard Mock Content */}
-            <div className="p-6 space-y-6">
-              {/* Telemetry Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-canvas border border-subtle rounded-xl p-4">
-                  <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">
-                    Total Monitored Branches
-                  </span>
-                  <div className="text-2xl font-bold font-mono text-heading mt-1">
-                    48
-                  </div>
-                  <span className="text-[11px] text-primary font-medium mt-0.5 block">
-                    Zero Webhook Latency Spikes
+            {/* Companion Triage Card */}
+            <div className="bg-surface border border-subtle rounded-xl p-4 shadow-subtle space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-red-600" />
+                  <span className="font-mono font-bold text-heading">
+                    INC-1042: AWS Secret Key
                   </span>
                 </div>
-                <div className="bg-canvas border border-subtle rounded-xl p-4">
-                  <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">
-                    Blocked Leak Attempts
-                  </span>
-                  <div className="text-2xl font-bold font-mono text-heading mt-1">
-                    14
-                  </div>
-                  <span className="text-[11px] text-primary font-medium mt-0.5 block">
-                    100% Intercepted Pre-Merge
-                  </span>
-                </div>
-                <div className="bg-canvas border border-subtle rounded-xl p-4">
-                  <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">
-                    Mean Time to Remediate (MTTR)
-                  </span>
-                  <div className="text-2xl font-bold font-mono text-heading mt-1">
-                    4.2m
-                  </div>
-                  <span className="text-[11px] text-muted mt-0.5 block">
-                    Auto-reconciled on commit rotation
-                  </span>
-                </div>
+                <span className="font-mono text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                  CRITICAL
+                </span>
               </div>
 
-              {/* Forensic Table Header */}
-              <div className="border border-subtle rounded-xl overflow-hidden bg-surface">
-                <div className="bg-canvas/60 px-4 py-2.5 border-b border-subtle flex items-center justify-between text-xs font-semibold text-muted">
-                  <span>DETECTED SECRET SIGNATURE</span>
-                  <span className="hidden md:inline">REPOSITORY & FILE PATH</span>
-                  <span className="hidden sm:inline">SEVERITY</span>
-                  <span>LIFECYCLE STATUS</span>
-                </div>
+              <div className="text-xs text-muted font-mono bg-canvas p-2.5 rounded-lg border border-subtle">
+                wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY (Masked)
+              </div>
 
-                {/* Finding 1 */}
-                <div className="px-4 py-3.5 border-b border-subtle flex items-center justify-between text-xs hover:bg-canvas/30 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                    <div>
-                      <div className="font-mono font-bold text-heading">
-                        AWS_SECRET_ACCESS_KEY
-                      </div>
-                      <div className="font-mono text-[11px] text-muted mt-0.5">
-                        wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY (Masked)
-                      </div>
-                    </div>
-                  </div>
-                  <div className="hidden md:block font-mono text-[11px] text-muted">
-                    org/payment-gateway &bull; src/config/aws.ts:42
-                  </div>
-                  <div className="hidden sm:block">
-                    <span className="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 font-mono text-[10px] font-bold">
-                      CRITICAL
-                    </span>
-                  </div>
-                  <div>
-                    <span className="px-2.5 py-1 rounded-full bg-canvas text-primary border border-subtle font-mono text-[11px] font-semibold">
-                      VERIFIED ACTIVE
-                    </span>
-                  </div>
-                </div>
-
-                {/* Finding 2 */}
-                <div className="px-4 py-3.5 border-b border-subtle flex items-center justify-between text-xs hover:bg-canvas/30 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                    <div>
-                      <div className="font-mono font-bold text-heading">
-                        STRIPE_RESTRICTED_KEY
-                      </div>
-                      <div className="font-mono text-[11px] text-muted mt-0.5">
-                        rk_live_51Hz...902a (HMAC Blind-Indexed)
-                      </div>
-                    </div>
-                  </div>
-                  <div className="hidden md:block font-mono text-[11px] text-muted">
-                    org/checkout-service &bull; tests/fixtures.py:18
-                  </div>
-                  <div className="hidden sm:block">
-                    <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono text-[10px] font-bold">
-                      HIGH
-                    </span>
-                  </div>
-                  <div>
-                    <span className="px-2.5 py-1 rounded-full bg-surface text-muted border border-subtle font-mono text-[11px] font-medium">
-                      AUTO-RESOLVED
-                    </span>
-                  </div>
-                </div>
-
-                {/* Finding 3 */}
-                <div className="px-4 py-3.5 flex items-center justify-between text-xs hover:bg-canvas/30 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                    <div>
-                      <div className="font-mono font-bold text-heading">
-                        GITHUB_PERSONAL_ACCESS_TOKEN
-                      </div>
-                      <div className="font-mono text-[11px] text-muted mt-0.5">
-                        ghp_9841fK...xZb2 (Commit #a419f0b)
-                      </div>
-                    </div>
-                  </div>
-                  <div className="hidden md:block font-mono text-[11px] text-muted">
-                    org/infrastructure-terraform &bull; main.tf:89
-                  </div>
-                  <div className="hidden sm:block">
-                    <span className="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 font-mono text-[10px] font-bold">
-                      CRITICAL
-                    </span>
-                  </div>
-                  <div>
-                    <span className="px-2.5 py-1 rounded-full bg-canvas text-primary border border-subtle font-mono text-[11px] font-semibold">
-                      TRIAGE REQUIRED
-                    </span>
-                  </div>
+              <div className="flex items-center justify-between pt-1 text-[11px]">
+                <span className="text-muted">Actor: dev-lead@org.internal</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-primary font-semibold">Triage:</span>
+                  <span className="font-mono font-medium text-heading bg-canvas px-2 py-0.5 rounded border border-subtle">
+                    RESOLVED_IN_COMMIT
+                  </span>
                 </div>
               </div>
             </div>
@@ -320,222 +255,245 @@ export function LandingView() {
         </div>
       </section>
 
-      {/* ── Architecture & Engineering Tenets ──────────────────────── */}
-      <section id="architecture" className="py-20 md:py-28 px-6 bg-surface border-b border-subtle">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-primary">
-              Core Architecture
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-heading mt-2">
-              Engineered for zero-delay pipelines and zero plaintext exposure.
+      {/* ── The Problem / Enforcement Gap ──────────────────────────── */}
+      <section id="enforcement" className="py-20 px-6 bg-surface border-b border-subtle">
+        <div className="max-w-5xl mx-auto space-y-12">
+          <div className="space-y-3">
+            <div className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
+              The Enforcement Gap
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-heading">
+              Why local pre-commit hooks and static scanners fall short.
             </h2>
-            <p className="text-sm sm:text-base text-muted mt-4 leading-relaxed">
-              Standard security tools slow down CI/CD or expose plaintext tokens in database tables. Aegis solves both problems at the architectural layer.
+            <p className="text-sm sm:text-base text-muted max-w-3xl leading-relaxed">
+              Developers frequently bypass client-side pre-commit hooks using <code className="font-mono font-semibold text-heading bg-canvas px-1.5 py-0.5 rounded">git commit --no-verify</code>. Without an un-bypassable cloud supervisor, leaked secrets sit in Git histories for months until attackers exploit them.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Card 1 */}
-            <div className="bg-canvas border border-subtle rounded-2xl p-7 flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-surface border border-subtle flex items-center justify-center text-primary mb-5 shadow-subtle">
-                  <Zap className="w-5 h-5" />
-                </div>
-                <h3 className="text-base font-bold text-heading tracking-tight">
-                  Sub-35ms Ingestion Gateway
-                </h3>
-                <p className="text-xs text-muted leading-relaxed mt-3">
-                  GitHub webhooks are authenticated with HMAC-SHA256 and acknowledged with an immediate HTTP 202 in under 35ms. Heavy git clone and static analysis workloads run asynchronously on Celery worker pools.
-                </p>
+            <div className="bg-canvas border border-subtle rounded-xl p-6 space-y-3">
+              <div className="w-8 h-8 rounded-lg bg-surface border border-subtle flex items-center justify-center text-heading font-mono text-xs font-bold">
+                01
               </div>
-              <div className="mt-6 pt-4 border-t border-subtle">
-                <span className="font-mono text-[11px] text-primary font-semibold">
-                  FastAPI + Redis + Celery
-                </span>
-              </div>
+              <h3 className="text-sm font-bold text-heading">
+                Webhook Timeouts & DoS
+              </h3>
+              <p className="text-xs text-muted leading-relaxed">
+                Large release pushes contain hundreds of file diffs. Synchronous scanners exceed GitHub&apos;s 10-second delivery window, dropping events and blinding security teams.
+              </p>
             </div>
 
-            {/* Card 2 */}
-            <div className="bg-canvas border border-subtle rounded-2xl p-7 flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-surface border border-subtle flex items-center justify-center text-primary mb-5 shadow-subtle">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <h3 className="text-base font-bold text-heading tracking-tight">
+            <div className="bg-canvas border border-subtle rounded-xl p-6 space-y-3">
+              <div className="w-8 h-8 rounded-lg bg-surface border border-subtle flex items-center justify-center text-heading font-mono text-xs font-bold">
+                02
+              </div>
+              <h3 className="text-sm font-bold text-heading">
+                Secondary Plaintext Storage Leaks
+              </h3>
+              <p className="text-xs text-muted leading-relaxed">
+                Naive security tools store detected credentials in plaintext database columns, turning the scanner into a high-value attack target during SQL injections or backup dumps.
+              </p>
+            </div>
+
+            <div className="bg-canvas border border-subtle rounded-xl p-6 space-y-3">
+              <div className="w-8 h-8 rounded-lg bg-surface border border-subtle flex items-center justify-center text-heading font-mono text-xs font-bold">
+                03
+              </div>
+              <h3 className="text-sm font-bold text-heading">
+                Phantom Duplication & Alert Fatigue
+              </h3>
+              <p className="text-xs text-muted leading-relaxed">
+                At-least-once webhook retries and parallel CI runs create duplicate tickets for identical commit SHAs, flooding SecOps channels with ghost findings.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Architecture & Engineering Solutions ───────────────────── */}
+      <section id="architecture" className="py-20 px-6 border-b border-subtle">
+        <div className="max-w-5xl mx-auto space-y-12">
+          <div className="space-y-3">
+            <div className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
+              System Architecture
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-heading">
+              Four architectural solutions built for scale and security.
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Feature 1 */}
+            <div className="bg-surface border border-subtle rounded-xl p-6 space-y-3 shadow-subtle">
+              <div className="flex items-center space-x-2 text-primary">
+                <Zap className="w-4 h-4" />
+                <h3 className="text-sm font-bold text-heading">
+                  Sub-35ms Asynchronous Ingestion Gateway
+                </h3>
+              </div>
+              <p className="text-xs text-muted leading-relaxed">
+                Incoming payloads to <code className="font-mono bg-canvas px-1 py-0.5 rounded text-heading">/api/v1/webhooks/github</code> are validated using constant-time HMAC-SHA256 comparison and immediately enqueued onto Redis. The HTTP handshake completes in &lt;35ms, satisfying GitHub SLAs with zero dropped events.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="bg-surface border border-subtle rounded-xl p-6 space-y-3 shadow-subtle">
+              <div className="flex items-center space-x-2 text-primary">
+                <Lock className="w-4 h-4" />
+                <h3 className="text-sm font-bold text-heading">
                   Cryptographic Blind Indexing
                 </h3>
-                <p className="text-xs text-muted leading-relaxed mt-3">
-                  Detected credentials are never stored in plaintext. Aegis computes an HMAC-SHA256 blind index with environment-level salt to perform fast lookups and deduplication without exposing raw tokens in database backups.
-                </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-subtle">
-                <span className="font-mono text-[11px] text-primary font-semibold">
-                  AES-256-GCM + Blind Hash
-                </span>
-              </div>
+              <p className="text-xs text-muted leading-relaxed">
+                Dual-Cipher Architecture: secret signatures are salted and blind-indexed via HMAC-SHA256 for instantaneous deduplication queries (<code className="font-mono bg-canvas px-1 py-0.5 rounded text-heading">WHERE secret_hash = :hash</code>). Raw tokens are never stored in plaintext.
+              </p>
             </div>
 
-            {/* Card 3 */}
-            <div className="bg-canvas border border-subtle rounded-2xl p-7 flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-surface border border-subtle flex items-center justify-center text-primary mb-5 shadow-subtle">
-                  <RotateCcw className="w-5 h-5" />
-                </div>
-                <h3 className="text-base font-bold text-heading tracking-tight">
-                  Automated Lifecycle Reconciler
+            {/* Feature 3 */}
+            <div className="bg-surface border border-subtle rounded-xl p-6 space-y-3 shadow-subtle">
+              <div className="flex items-center space-x-2 text-primary">
+                <RotateCcw className="w-4 h-4" />
+                <h3 className="text-sm font-bold text-heading">
+                  Automated Lifecycle & Regression Reconciliation
                 </h3>
-                <p className="text-xs text-muted leading-relaxed mt-3">
-                  When a developer removes a leaked key in a subsequent commit, Aegis automatically marks the incident as resolved. If the secret resurfaces on another branch, Aegis triggers an urgent regression escalation.
-                </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-subtle">
-                <span className="font-mono text-[11px] text-primary font-semibold">
-                  AST Diff State Machine
-                </span>
+              <p className="text-xs text-muted leading-relaxed">
+                When a subsequent commit eliminates the offending token line, the Celery worker automatically updates the ticket status to <code className="font-mono bg-canvas px-1 py-0.5 rounded text-heading">RESOLVED (REMOVED_IN_COMMIT)</code>. If the key resurfaces on another branch, it triggers an instant regression escalation.
+              </p>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="bg-surface border border-subtle rounded-xl p-6 space-y-3 shadow-subtle">
+              <div className="flex items-center space-x-2 text-primary">
+                <GitFork className="w-4 h-4" />
+                <h3 className="text-sm font-bold text-heading">
+                  Deterministic Fingerprinting & Deduplication
+                </h3>
               </div>
+              <p className="text-xs text-muted leading-relaxed">
+                Every detected finding receives a deterministic fingerprint computed from <code className="font-mono bg-canvas px-1 py-0.5 rounded text-heading">SHA256(RepoID + RuleID + FilePath + BlindHash)</code> with a PostgreSQL <code className="font-mono bg-canvas px-1 py-0.5 rounded text-heading">UNIQUE</code> constraint, eliminating ghost findings during webhook retries.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── How It Works (Pipeline) ────────────────────────────────── */}
-      <section id="pipeline" className="py-20 md:py-28 px-6 border-b border-subtle">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-primary">
-              Deployment Workflow
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-heading mt-2">
-              Three steps from setup to complete repository protection.
+      {/* ── CLI & Sensor Section ───────────────────────────────────── */}
+      <section id="cli" className="py-20 px-6 bg-surface border-b border-subtle">
+        <div className="max-w-5xl mx-auto space-y-12">
+          <div className="space-y-3">
+            <div className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
+              CLI & Local Sensor
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-heading">
+              Pure Go standalone binary for developer workstations and CI runners.
             </h2>
+            <p className="text-sm sm:text-base text-muted max-w-3xl leading-relaxed">
+              The <code className="font-mono font-semibold text-heading bg-canvas px-1.5 py-0.5 rounded">aegis</code> CLI runs locally with zero runtime dependencies. Install pre-commit hooks or integrate scans directly into GitHub Actions, GitLab CI, and Docker builds.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Step 1 */}
-            <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-subtle flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-xs font-bold text-primary px-2.5 py-1 rounded bg-canvas border border-subtle">
-                    STEP 01
-                  </span>
-                  <GitFork className="w-5 h-5 text-muted" />
-                </div>
-                <h3 className="text-sm font-bold text-heading">
-                  Connect Git Repositories
-                </h3>
-                <p className="text-xs text-muted leading-relaxed mt-2">
-                  Authenticate via GitHub OAuth or register custom organization webhooks with automated HMAC secret rotation.
-                </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
+            <div className="bg-canvas border border-subtle rounded-xl p-5 space-y-3">
+              <div className="flex items-center justify-between text-muted">
+                <span className="font-bold text-heading">Local Directory Scan</span>
+                <FileCode className="w-4 h-4" />
               </div>
-              <div className="mt-6 p-3 bg-canvas border border-subtle rounded-xl font-mono text-[11px] text-muted">
-                POST /api/v1/repositories/onboard
+              <div className="text-heading font-semibold">
+                $ aegis scan .
               </div>
+              <p className="text-[11px] text-muted font-sans leading-relaxed">
+                Inspects uncommitted diffs and full repo history against 40+ credential rule definitions.
+              </p>
             </div>
 
-            {/* Step 2 */}
-            <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-subtle flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-xs font-bold text-primary px-2.5 py-1 rounded bg-canvas border border-subtle">
-                    STEP 02
-                  </span>
-                  <Activity className="w-5 h-5 text-muted" />
-                </div>
-                <h3 className="text-sm font-bold text-heading">
-                  Real-time Push Interception
-                </h3>
-                <p className="text-xs text-muted leading-relaxed mt-2">
-                  Every commit push triggers shallow sandboxed analysis across 40+ credential types with deterministic fingerprinting.
-                </p>
+            <div className="bg-canvas border border-subtle rounded-xl p-5 space-y-3">
+              <div className="flex items-center justify-between text-muted">
+                <span className="font-bold text-heading">Git Hook Auto-Install</span>
+                <GitCommit className="w-4 h-4" />
               </div>
-              <div className="mt-6 p-3 bg-canvas border border-subtle rounded-xl font-mono text-[11px] text-muted">
-                SHA256(RepoID + RuleID + BlindHash)
+              <div className="text-heading font-semibold">
+                $ aegis hook install
               </div>
+              <p className="text-[11px] text-muted font-sans leading-relaxed">
+                Sets up executable pre-commit intercept hooks in the active Git repository.
+              </p>
             </div>
 
-            {/* Step 3 */}
-            <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-subtle flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-xs font-bold text-primary px-2.5 py-1 rounded bg-canvas border border-subtle">
-                    STEP 03
-                  </span>
-                  <CheckCircle2 className="w-5 h-5 text-primary" />
-                </div>
-                <h3 className="text-sm font-bold text-heading">
-                  Triage & Forensic Audit
-                </h3>
-                <p className="text-xs text-muted leading-relaxed mt-2">
-                  Instant Slack alerts and Linear-speed triage console with append-only compliance logs for SOC 2 and ISO 27001.
-                </p>
+            <div className="bg-canvas border border-subtle rounded-xl p-5 space-y-3">
+              <div className="flex items-center justify-between text-muted">
+                <span className="font-bold text-heading">Cloud Synchronization</span>
+                <Server className="w-4 h-4" />
               </div>
-              <div className="mt-6 p-3 bg-canvas border border-subtle rounded-xl font-mono text-[11px] text-muted">
-                Audit Ledger &bull; 100% Traceable
+              <div className="text-heading font-semibold">
+                $ aegis login --token &lt;KEY&gt;
               </div>
+              <p className="text-[11px] text-muted font-sans leading-relaxed">
+                Authenticates the CLI sensor with your central control plane organization.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Comparison Table ────────────────────────────────────────── */}
-      <section id="comparison" className="py-20 md:py-28 px-6 bg-surface border-b border-subtle">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-primary">
-              Engineering Comparison
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-heading mt-2">
-              How Aegis compares to legacy approaches.
+      {/* ── Technical Comparison ───────────────────────────────────── */}
+      <section id="comparison" className="py-20 px-6 border-b border-subtle">
+        <div className="max-w-5xl mx-auto space-y-12">
+          <div className="space-y-3">
+            <div className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
+              Technical Comparison
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-heading">
+              How Aegis compares to existing secret scanning solutions.
             </h2>
           </div>
 
-          <div className="border border-subtle rounded-2xl overflow-hidden shadow-subtle">
-            <div className="grid grid-cols-4 bg-canvas/80 px-6 py-4 border-b border-subtle text-xs font-bold text-heading uppercase tracking-wider">
-              <div className="col-span-1">Feature / Metric</div>
-              <div className="text-center text-primary">Aegis Platform</div>
-              <div className="text-center text-muted">GitHub Secret Scan</div>
-              <div className="text-center text-muted">Generic CLI SAST</div>
+          <div className="border border-subtle rounded-xl overflow-hidden bg-surface shadow-subtle">
+            <div className="grid grid-cols-4 bg-canvas px-6 py-3.5 border-b border-subtle text-xs font-bold text-heading uppercase tracking-wider">
+              <div className="col-span-1">Capability</div>
+              <div className="text-center text-primary font-mono">Aegis Platform</div>
+              <div className="text-center text-muted font-mono">GitHub Secret Scan</div>
+              <div className="text-center text-muted font-mono">Generic CLI SAST</div>
             </div>
 
             {[
               {
-                metric: "Ingestion Latency",
+                cap: "Webhook Ingestion SLA",
                 aegis: "< 35ms (Async 202)",
                 gh: "Variable",
-                cli: "Blocks CI (minutes)",
+                cli: "Blocks CI execution",
               },
               {
-                metric: "Plaintext Secret Storage",
+                cap: "Plaintext Storage Policy",
                 aegis: "Zero (Blind Indexed)",
                 gh: "Encrypted Blob",
-                cli: "Plaintext Logs/Disk",
+                cli: "Plaintext in CI logs",
               },
               {
-                metric: "Triage & Audit Trail",
-                aegis: "Append-Only SOC 2 Ledger",
-                gh: "Basic Alert List",
-                cli: "None / Console Output",
-              },
-              {
-                metric: "Automated Lifecycle",
-                aegis: "Auto-Resolve & Regressions",
-                gh: "Manual Close",
+                cap: "Lifecycle Auto-Resolve",
+                aegis: "Automatic AST Reconciler",
+                gh: "Manual Dismissal",
                 cli: "Static State Only",
               },
               {
-                metric: "Local & Cloud Parity",
-                aegis: "CLI Sensor + Cloud Hub",
-                gh: "Cloud Only",
-                cli: "Local Only",
+                cap: "Deduplication Engine",
+                aegis: "Deterministic Fingerprint",
+                gh: "Basic SHA Match",
+                cli: "None / Duplicate rows",
+              },
+              {
+                cap: "Self-Hostable Monorepo",
+                aegis: "Docker Compose / Render",
+                gh: "Enterprise Cloud Only",
+                cli: "Local binary only",
               },
             ].map((row, i) => (
               <div
                 key={i}
-                className="grid grid-cols-4 px-6 py-4 border-b border-subtle last:border-0 text-xs items-center hover:bg-canvas/30 transition-colors"
+                className="grid grid-cols-4 px-6 py-4 border-b border-subtle last:border-0 text-xs items-center hover:bg-canvas/40 transition-colors"
               >
                 <div className="col-span-1 font-semibold text-heading">
-                  {row.metric}
+                  {row.cap}
                 </div>
                 <div className="text-center font-bold text-primary font-mono">
                   {row.aegis}
@@ -549,14 +507,14 @@ export function LandingView() {
       </section>
 
       {/* ── FAQ ─────────────────────────────────────────────────────── */}
-      <section id="faq" className="py-20 md:py-28 px-6 border-b border-subtle">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-primary">
+      <section id="faq" className="py-20 px-6 bg-surface border-b border-subtle">
+        <div className="max-w-4xl mx-auto space-y-12">
+          <div className="space-y-3">
+            <div className="text-xs font-mono font-bold tracking-widest text-primary uppercase">
               Frequently Asked Questions
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-heading mt-2">
-              Everything you need to know about Aegis.
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-heading">
+              Technical specifics and deployment details.
             </h2>
           </div>
 
@@ -564,26 +522,26 @@ export function LandingView() {
             {[
               {
                 q: "What types of secrets does Aegis detect?",
-                a: "Aegis detects AWS keys (AKIA*), GitHub Personal Access Tokens, Stripe live keys, private RSA/EC certificates, database connection strings, JWT signing keys, and high-entropy API tokens across 40+ detection signatures.",
+                a: "Aegis detects AWS Access Keys (AKIA*), GitHub Personal Access Tokens (ghp_*), Stripe Live Keys (sk_live_*), Private RSA/EC keys, Database Connection Strings, Slack Webhooks, JWT signing keys, and high-entropy API tokens across 40+ detection signatures.",
               },
               {
                 q: "Does Aegis store raw secrets in the database?",
-                a: "No. Aegis operates on a zero-plaintext architecture. Secret signatures are transformed into an HMAC-SHA256 blind index using an isolated environment pepper. Dashboards and notification alerts render only masked snippets (e.g. sk_live_****3a9f).",
+                a: "No. Aegis enforces a strict zero-plaintext storage policy. Detected secret signatures are transformed into an HMAC-SHA256 blind index using an environment pepper. The web console and Slack notifications render only masked snippets (e.g. sk_live_****3a9f).",
               },
               {
-                q: "Can I run Aegis self-hosted in our private VPC?",
-                a: "Yes. Aegis is open-source and provides pre-configured Docker Compose and Kubernetes deployment manifests. You can deploy both the API control plane and Celery scanning workers entirely within your private infrastructure.",
+                q: "Can I self-host Aegis on our private cloud or Kubernetes cluster?",
+                a: "Yes. Aegis is 100% open-source and provides pre-configured Docker Compose, Render Blueprint (render.yaml), and standard PostgreSQL + Redis orchestration manifests.",
               },
               {
-                q: "How does Aegis prevent webhook timeouts during large pushes?",
-                a: "The FastAPI gateway performs constant-time HMAC signature validation and immediately queues the event onto Redis with an HTTP 202 response within 35ms, fully complying with GitHub's webhook delivery SLA.",
+                q: "How does Aegis prevent webhook delivery timeouts during large Git pushes?",
+                a: "The FastAPI ingestion gateway validates the incoming payload's HMAC-SHA256 signature and enqueues the job onto Redis with an immediate HTTP 202 response within 35ms, comfortably satisfying GitHub's 10-second delivery SLA.",
               },
             ].map((faq, i) => (
               <div
                 key={i}
-                className="bg-surface border border-subtle rounded-2xl p-6 shadow-subtle"
+                className="bg-canvas border border-subtle rounded-xl p-6 space-y-2"
               >
-                <h3 className="text-sm font-bold text-heading mb-2">{faq.q}</h3>
+                <h3 className="text-sm font-bold text-heading">{faq.q}</h3>
                 <p className="text-xs text-muted leading-relaxed">{faq.a}</p>
               </div>
             ))}
@@ -591,19 +549,19 @@ export function LandingView() {
         </div>
       </section>
 
-      {/* ── Bottom CTA ──────────────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-surface">
-        <div className="max-w-4xl mx-auto text-center">
+      {/* ── Bottom Call to Action ───────────────────────────────────── */}
+      <section className="py-20 px-6 bg-canvas text-center">
+        <div className="max-w-3xl mx-auto space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-heading">
             Deploy automated secret interception today.
           </h2>
-          <p className="mt-4 text-sm text-muted max-w-xl mx-auto leading-relaxed">
-            Protect your organization from credential exposure with zero CI delays. Get started in less than two minutes.
+          <p className="text-sm text-muted leading-relaxed max-w-xl mx-auto">
+            Connect your GitHub repositories in less than two minutes. Open-source, zero-trust, and engineered for high-throughput development pipelines.
           </p>
-          <div className="mt-8 flex items-center justify-center space-x-3">
+          <div className="pt-2 flex items-center justify-center space-x-3">
             <Link
               href="/signup"
-              className="inline-flex items-center space-x-2 text-sm font-semibold bg-primary hover:bg-heading text-surface px-6 py-3.5 rounded-xl shadow-card transition-colors"
+              className="inline-flex items-center space-x-2 text-sm font-semibold bg-primary hover:bg-heading text-surface px-6 py-3.5 rounded-lg shadow-subtle transition-colors"
             >
               <span>Create Free Account</span>
               <ArrowRight className="w-4 h-4" />
@@ -613,7 +571,7 @@ export function LandingView() {
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="w-full bg-canvas border-t border-subtle py-8 px-6 text-xs text-muted">
+      <footer className="w-full bg-surface border-t border-subtle py-8 px-6 text-xs text-muted">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
             <Shield className="w-4 h-4 text-primary" />
@@ -628,8 +586,11 @@ export function LandingView() {
             <Link href="/signup" className="hover:text-heading transition-colors">
               Sign Up
             </Link>
+            <Link href="/cli" className="hover:text-heading transition-colors">
+              CLI Documentation
+            </Link>
             <a
-              href="https://github.com/ilyankhan/aegis-platform"
+              href="https://github.com/Ilyan321/aegis-platform"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-heading transition-colors"
@@ -638,7 +599,7 @@ export function LandingView() {
             </a>
           </div>
           <p className="text-[11px] text-muted">
-            Zero-Trust Credential Security Mesh. Open Source.
+            Zero-Trust Credential Security Mesh. Open Source MIT License.
           </p>
         </div>
       </footer>
