@@ -153,3 +153,121 @@ async def test_repository_webhook_config_and_manual_install(async_client: AsyncC
     )
     assert install_resp.status_code == 400
     assert "No GitHub OAuth access token" in install_resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_repeated_scan_deduplication_idempotency(async_client: AsyncClient, test_user_data):
+    # 1. Fetch CLI token
+    token_resp = await async_client.get(
+        "/api/v1/auth/cli-token",
+        headers=test_user_data["headers"],
+    )
+    cli_token = token_resp.json()["cli_token"]
+    cli_headers = {"Authorization": f"Bearer {cli_token}"}
+
+    # 2. Define 3 realistic findings
+    findings = [
+        {
+            "id": "ephemeral-id-run-1-a",
+            "rule_id": "AEGIS-AWS-001",
+            "file_path": "src/config/aws.ts",
+            "line_number": 12,
+            "masked_value": "AKIA1234************",
+            "severity": "CRITICAL",
+            "verification": {"status": "ACTIVE", "details": "AWS STS Valid"},
+        },
+        {
+            "id": "ephemeral-id-run-1-b",
+            "rule_id": "AEGIS-STRIPE-001",
+            "file_path": "services/payment.py",
+            "line_number": 45,
+            "masked_value": "sk_live_51Hz********",
+            "severity": "HIGH",
+            "verification": {"status": "ACTIVE", "details": "Stripe Live"},
+        },
+        {
+            "id": "ephemeral-id-run-1-c",
+            "rule_id": "AEGIS-GITHUB-001",
+            "file_path": ".github/workflows/deploy.yml",
+            "line_number": 8,
+            "masked_value": "ghp_9841************",
+            "severity": "HIGH",
+            "verification": {"status": "UNVERIFIED"},
+        },
+    ]
+
+    scan_payload_1 = {
+        "repository_name": "acme/idempotency-repo",
+        "commit_sha": "1111111111111111111111111111111111111111",
+        "branch": "main",
+        "total_findings": 3,
+        "findings": findings,
+    }
+
+    # First scan run -> should record 3 incidents
+    resp1 = await async_client.post("/api/v1/scans/cli", json=scan_payload_1, headers=cli_headers)
+    assert resp1.status_code == 201
+    assert resp1.json()["incidents_recorded"] == 3
+
+    # Fetch incidents for repository
+    repo_id = resp1.json()["repository_id"]
+    incidents_resp_1 = await async_client.get(
+        f"/api/v1/incidents?repository_id={repo_id}",
+        headers=test_user_data["headers"],
+    )
+    assert incidents_resp_1.status_code == 200
+    assert len(incidents_resp_1.json()) == 3
+
+    # Second scan run with different ephemeral finding IDs (simulating second scan on same codebase)
+    findings_run_2 = [
+        {
+            "id": "ephemeral-id-run-2-a-DIFFERENT",
+            "rule_id": "AEGIS-AWS-001",
+            "file_path": "./src/config/aws.ts",  # with leading ./
+            "line_number": 12,
+            "masked_value": "AKIA1234************",
+            "severity": "CRITICAL",
+            "verification": {"status": "ACTIVE", "details": "AWS STS Valid"},
+        },
+        {
+            "id": "ephemeral-id-run-2-b-DIFFERENT",
+            "rule_id": "AEGIS-STRIPE-001",
+            "file_path": "services/payment.py",
+            "line_number": 45,
+            "masked_value": "sk_live_51Hz********",
+            "severity": "HIGH",
+            "verification": {"status": "ACTIVE", "details": "Stripe Live"},
+        },
+        {
+            "id": "ephemeral-id-run-2-c-DIFFERENT",
+            "rule_id": "AEGIS-GITHUB-001",
+            "file_path": ".github/workflows/deploy.yml",
+            "line_number": 8,
+            "masked_value": "ghp_9841************",
+            "severity": "HIGH",
+            "verification": {"status": "UNVERIFIED"},
+        },
+    ]
+
+    scan_payload_2 = {
+        "repository_name": "acme/idempotency-repo",
+        "commit_sha": "2222222222222222222222222222222222222222",
+        "branch": "main",
+        "total_findings": 3,
+        "findings": findings_run_2,
+    }
+
+    # Second scan run -> MUST NOT duplicate! incidents_recorded should be 0 new rows
+    resp2 = await async_client.post("/api/v1/scans/cli", json=scan_payload_2, headers=cli_headers)
+    assert resp2.status_code == 201
+    assert resp2.json()["incidents_recorded"] == 0
+
+    # Verify total incidents in database is STILL EXACTLY 3 (not 6!)
+    incidents_resp_2 = await async_client.get(
+        f"/api/v1/incidents?repository_id={repo_id}",
+        headers=test_user_data["headers"],
+    )
+    assert incidents_resp_2.status_code == 200
+    all_incidents = incidents_resp_2.json()
+    assert len(all_incidents) == 3, f"Expected 3 incidents, got {len(all_incidents)} (duplicate bug detected!)"
+

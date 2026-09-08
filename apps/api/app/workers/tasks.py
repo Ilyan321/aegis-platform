@@ -286,6 +286,7 @@ async def execute_scan_workflow(
             for finding in findings_list:
                 rule_id = finding.get("rule_id", "UNKNOWN")
                 rule_name = finding.get("title") or finding.get("rule_description") or finding.get("description") or "Detected Secret"
+                # Normalize file path so relative path is deterministic across all temporary directories
                 raw_path = finding.get("file_path", "unknown")
                 if str(temp_dir) in raw_path:
                     file_path = os.path.relpath(raw_path, str(temp_dir))
@@ -299,9 +300,8 @@ async def execute_scan_workflow(
                 verif_status = verification.get("status", "NOT_VERIFIED")
                 verif_details = verification.get("details", "")
 
-                cli_finding_id = finding.get("id", "")
-                # Incorporate CLI finding ID so multiple secrets in the same file don't collide
-                token_identity = f"{masked_val}:{cli_finding_id}" if cli_finding_id else masked_val
+                # Deterministic token blind index & fingerprint (do NOT use ephemeral finding IDs)
+                token_identity = f"{rule_id}:{masked_val}"
                 secret_hash = compute_blind_index(token_identity)
                 fingerprint = compute_incident_fingerprint(
                     str(repository.id), rule_id, file_path, secret_hash

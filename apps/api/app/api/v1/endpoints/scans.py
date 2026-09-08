@@ -113,10 +113,13 @@ async def ingest_cli_scan(
         if severity not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
             severity = "HIGH"
 
-        token_identity = f"{masked_val}:{f.id}" if f.id else masked_val
+        raw_path = f.file_path or "unknown"
+        norm_file_path = raw_path.replace("\\", "/").lstrip("./")
+
+        token_identity = f"{f.rule_id}:{masked_val}"
         secret_hash = compute_blind_index(token_identity)
         fingerprint = compute_incident_fingerprint(
-            str(repo.id), f.rule_id, f.file_path, secret_hash
+            str(repo.id), f.rule_id, norm_file_path, secret_hash
         )
 
         # Check existing incident
