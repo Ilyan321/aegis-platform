@@ -25,7 +25,6 @@ import {
   CheckCircle2,
   ShieldCheck,
   Download,
-  Sparkles,
   Layers,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -1225,16 +1224,12 @@ function SettingsContent() {
             {activeTab === "cli" && (
               <div className="space-y-6 animate-in fade-in duration-150">
                 {/* Header Intro Banner */}
-                <div className="p-6 bg-surface border border-subtle rounded-2xl space-y-3">
-                  <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Pure Go · Zero Dependencies · &lt;10ms Pre-Commit Guard</span>
-                  </div>
+                <div className="p-6 bg-surface border border-subtle rounded-2xl space-y-2 shadow-subtle">
                   <h2 className="text-lg font-bold tracking-tight text-heading">
                     Aegis CLI Workstation Setup & API Access
                   </h2>
                   <p className="text-xs text-muted leading-relaxed max-w-3xl">
-                    Install the compiled Aegis binary to intercept secrets on developer workstations, block leaks before git commits complete, and stream security telemetry directly into your cloud control plane.
+                    Install the Aegis binary to intercept secrets on developer workstations, block leaks before git commits complete, and stream security telemetry directly into your cloud control plane.
                   </p>
                 </div>
 
@@ -1421,7 +1416,7 @@ function SettingsContent() {
                           </div>
                           <h3 className="text-sm font-semibold text-heading">Initialize Repository Guardrail</h3>
                         </div>
-                        <span className="text-[11px] font-mono text-primary font-semibold">&lt;10ms latency</span>
+                        <span className="text-[11px] text-muted">Git Hook</span>
                       </div>
 
                       <p className="text-xs text-muted leading-relaxed">
@@ -1456,7 +1451,7 @@ function SettingsContent() {
                           </div>
                           <h3 className="text-sm font-semibold text-heading">Scan Repository & Stream Telemetry</h3>
                         </div>
-                        <span className="text-[11px] text-muted">Deep Multi-Threaded</span>
+                        <span className="text-[11px] text-muted">Cloud Telemetry</span>
                       </div>
 
                       <p className="text-xs text-muted leading-relaxed">
