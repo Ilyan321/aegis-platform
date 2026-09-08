@@ -18,8 +18,6 @@ interface CommandMenuProps {
   onSetTab: (tab: string) => void;
   onSetView?: (view: "incidents" | "repositories" | "scans") => void;
   onRefresh?: () => void;
-  onOpenAlertSettings?: () => void;
-  onOpenAccountSettings?: () => void;
 }
 
 export function CommandMenu({
@@ -33,8 +31,6 @@ export function CommandMenu({
   onSetTab,
   onSetView,
   onRefresh,
-  onOpenAlertSettings,
-  onOpenAccountSettings,
 }: CommandMenuProps) {
   useBodyScrollLock(isOpen);
   const router = useRouter();
@@ -162,30 +158,46 @@ export function CommandMenu({
                 <ShieldAlert className="w-4 h-4 text-primary" />
                 <span>Filter Critical Incidents</span>
               </Command.Item>
-              {onOpenAccountSettings && (
-                <Command.Item
-                  onSelect={() => {
-                    onOpenAccountSettings();
-                    onClose();
-                  }}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
-                >
-                  <User className="w-4 h-4 text-primary" />
-                  <span>Manage Account & Security Settings...</span>
-                </Command.Item>
-              )}
-              {onOpenAlertSettings && (
-                <Command.Item
-                  onSelect={() => {
-                    onOpenAlertSettings();
-                    onClose();
-                  }}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
-                >
-                  <Bell className="w-4 h-4 text-primary" />
-                  <span>Configure Workspace Alert Settings...</span>
-                </Command.Item>
-              )}
+              <Command.Item
+                onSelect={() => {
+                  router.push("/settings?tab=profile");
+                  onClose();
+                }}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+              >
+                <User className="w-4 h-4 text-primary" />
+                <span>Manage Profile & Workspace Settings...</span>
+              </Command.Item>
+              <Command.Item
+                onSelect={() => {
+                  router.push("/settings?tab=security");
+                  onClose();
+                }}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+              >
+                <Shield className="w-4 h-4 text-primary" />
+                <span>Security & Password Policy...</span>
+              </Command.Item>
+              <Command.Item
+                onSelect={() => {
+                  router.push("/settings?tab=alerts");
+                  onClose();
+                }}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+              >
+                <Bell className="w-4 h-4 text-primary" />
+                <span>Configure Alert Webhooks & Routing...</span>
+              </Command.Item>
+              <Command.Item
+                onSelect={() => {
+                  router.push("/settings?tab=cli");
+                  onClose();
+                }}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-heading hover:bg-canvas cursor-pointer aria-selected:bg-canvas"
+              >
+                <Terminal className="w-4 h-4 text-primary" />
+                <span>API Keys & Personal CLI Tokens...</span>
+              </Command.Item>
               <Command.Item
                 onSelect={() => {
                   router.push("/cli");

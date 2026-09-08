@@ -11,8 +11,6 @@ import { OnboardModal } from "@/components/OnboardModal";
 import { CommandMenu } from "@/components/CommandMenu";
 import { RepositoriesView } from "@/components/RepositoriesView";
 import { ScansView } from "@/components/ScansView";
-import { AlertSettingsModal } from "@/components/AlertSettingsModal";
-import { AccountSettingsModal } from "@/components/AccountSettingsModal";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Shield, GitFork, Activity, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -88,8 +86,6 @@ export default function DashboardPage() {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [isOnboardOpen, setIsOnboardOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
-  const [isAlertSettingsOpen, setIsAlertSettingsOpen] = useState(false);
-  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
 
   // Load Dashboard Data scoped to active user
   const loadDashboardData = useCallback(async (orgId?: string | null) => {
@@ -405,8 +401,6 @@ export default function DashboardPage() {
         onRefresh={handleRefresh}
         isRefreshing={refreshing}
         activeOrgName={activeOrgName}
-        onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
-        onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
       />
 
       {/* Main Content Container with Breathable 8pt Spacing */}
@@ -691,20 +685,6 @@ export default function DashboardPage() {
         }}
         onSetView={(view) => setCurrentView(view)}
         onRefresh={handleRefresh}
-        onOpenAlertSettings={() => setIsAlertSettingsOpen(true)}
-        onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
-      />
-
-      {/* Alert Settings & Integration Modal */}
-      <AlertSettingsModal
-        isOpen={isAlertSettingsOpen}
-        onClose={() => setIsAlertSettingsOpen(false)}
-      />
-
-      {/* Account & Security Settings Modal */}
-      <AccountSettingsModal
-        isOpen={isAccountSettingsOpen}
-        onClose={() => setIsAccountSettingsOpen(false)}
       />
     </div>
   );

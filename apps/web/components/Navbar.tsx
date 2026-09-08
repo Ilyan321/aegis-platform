@@ -13,6 +13,7 @@ import {
   Bell,
   Terminal,
   User,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -25,8 +26,6 @@ interface NavbarProps {
   onRefresh: () => void;
   isRefreshing?: boolean;
   activeOrgName?: string;
-  onOpenAlertSettings?: () => void;
-  onOpenAccountSettings?: () => void;
 }
 
 export function Navbar({
@@ -36,8 +35,6 @@ export function Navbar({
   onRefresh,
   isRefreshing = false,
   activeOrgName,
-  onOpenAlertSettings,
-  onOpenAccountSettings,
 }: NavbarProps) {
   const { user, loading, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -227,41 +224,40 @@ export function Navbar({
 
                   {/* Actions */}
                   <div className="pt-2 space-y-1">
-                    {onOpenAccountSettings && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileOpen(false);
-                          onOpenAccountSettings();
-                        }}
-                        className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
-                      >
-                        <User className="w-3.5 h-3.5 text-primary" />
-                        <span>Account & Security</span>
-                      </button>
-                    )}
-
-                    {onOpenAlertSettings && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileOpen(false);
-                          onOpenAlertSettings();
-                        }}
-                        className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
-                      >
-                        <Bell className="w-3.5 h-3.5 text-primary" />
-                        <span>Alert Settings & Webhooks</span>
-                      </button>
-                    )}
+                    <Link
+                      href="/settings?tab=profile"
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                    >
+                      <User className="w-3.5 h-3.5 text-primary" />
+                      <span>Workspace Settings</span>
+                    </Link>
 
                     <Link
-                      href="/cli"
+                      href="/settings?tab=security"
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-primary" />
+                      <span>Security & Authentication</span>
+                    </Link>
+
+                    <Link
+                      href="/settings?tab=alerts"
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
+                    >
+                      <Bell className="w-3.5 h-3.5 text-primary" />
+                      <span>Alert Settings & Webhooks</span>
+                    </Link>
+
+                    <Link
+                      href="/settings?tab=cli"
                       onClick={() => setProfileOpen(false)}
                       className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs text-muted hover:text-heading hover:bg-canvas transition-colors cursor-pointer"
                     >
                       <Terminal className="w-3.5 h-3.5 text-primary" />
-                      <span>Aegis CLI & Windows Guide</span>
+                      <span>API Keys & CLI Access</span>
                     </Link>
 
                     <button
